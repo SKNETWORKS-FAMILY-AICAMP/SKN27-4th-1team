@@ -87,11 +87,11 @@ SKN27-4th-1team/
 |   `-- migrations/
 |       `-- __init__.py
 |
-|-- generator/               # AI 괴담 생성, RAG, RAGAS/evaluation
+|-- generator/               # AI 괴담 생성 + evaluation
 |   |-- admin.py
 |   |-- apps.py
 |   |-- models.py            # 생성 결과 저장 모델
-|   |-- services.py          # LLM 호출, RAG 조합, RAGAS 평가
+|   |-- services.py          # LLM 호출
 |   |-- tests.py
 |   |-- urls.py
 |   |-- views.py
