@@ -300,3 +300,12 @@ $RECYCLE.BIN/
 *.lnk
 
 # End of https://www.toptal.com/developers/gitignore/api/windows,python,django
+
+# Local large database JSON & CSV files
+docs/nodes.csv
+docs/edges.csv
+docs/global_horror_database.json
+docs/ultimate_global_mythology_1000.json
+docs/verified_korean_horror_master.json
+processing/preprocessed_creepypastas.json
+processing/preprocessed_scp.json
