@@ -129,7 +129,7 @@
           return;
         }
 
-        window.location.href = `{% url 'archive:sillokgwan' %}?q=${encodeURIComponent(message)}`;
+        window.location.href = `{% url 'archive:chatbot' %}?q=${encodeURIComponent(message)}`;
       });
 
       startButton.addEventListener("click", startExperience);

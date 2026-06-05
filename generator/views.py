@@ -3,7 +3,7 @@ from django.http import JsonResponse
 import json
 from .services import generate_ghost_story_pipeline
 
-def goeijejoso(request):
+def storymaker(request):
     return render(request, 'generator/storymaker.html')
 
 def generate_story_api(request):

@@ -22,13 +22,13 @@ def run_migration():
     # Mapping for HTML Templates
     html_mapping = {
         "index.html": "templates/archive/index.html",
-        "chatbot.html": "templates/archive/sillokgwan.html", # 기록 열람실 (Chatbot.html)
-        "archive.html": "templates/archive/geumgirok.html",   # 금기 자료실 (Archive.html)
+        "chatbot.html": "templates/archive/chatbot.html",     # 기록 열람실
+        "archive.html": "templates/archive/archive.html",     # 금기 자료실
         "login.html": "templates/accounts/login.html",
         "register.html": "templates/accounts/signup.html",
-        "mypage.html": "templates/accounts/mygirok.html",
-        "storymaker.html": "templates/generator/goeijejoso.html",
-        "community.html": "templates/post/mokgyeokgirok.html",
+        "mypage.html": "templates/accounts/mypage.html",
+        "storymaker.html": "templates/generator/storymaker.html",
+        "community.html": "templates/post/community.html",
         "regioninfo.html": "templates/regions/regioninfo.html"
     }
     
