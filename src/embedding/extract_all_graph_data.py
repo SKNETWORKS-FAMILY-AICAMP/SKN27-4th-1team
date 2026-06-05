@@ -11,12 +11,13 @@ def main():
     sys.stdout.reconfigure(encoding='utf-8')
     print("Processing managed JSON files (KOREAN MASTER, GLOBAL MASTER, REDDIT STORIES) to build nodes.csv and edges.csv...")
     
-    source_dir = 'graph_source_data'
-    
+    data_dir = 'database/data'
+    processing_dir = 'processing'
+
     # Check if files exist
-    korean_path = os.path.join(source_dir, 'verified_korean_horror_master.json')
-    global_path = os.path.join(source_dir, 'ultimate_global_mythology_1000.json')
-    global_db_path = os.path.join(source_dir, 'global_horror_database.json')
+    korean_path = os.path.join(data_dir, 'verified_korean_horror_master.json')
+    global_path = os.path.join(data_dir, 'ultimate_global_mythology_1000.json')
+    global_db_path = os.path.join(data_dir, 'global_horror_database.json')
     
     # Store unique Nodes and Edges
     nodes = {}  # id -> {id, name, label}
@@ -197,7 +198,7 @@ def main():
             edges.add((node_id, src_id, "POSTED_ON"))
 
     # 4. Parse preprocessed_scp.json (995 entries)
-    scp_path = os.path.join(source_dir, 'preprocessed_scp.json')
+    scp_path = os.path.join(processing_dir, 'preprocessed_scp.json')
     if os.path.exists(scp_path):
         print("-> Parsing preprocessed_scp.json...")
         with open(scp_path, 'r', encoding='utf-8') as f:
@@ -260,7 +261,7 @@ def main():
                     edges.add((scp_id, legend_id, "FEATURES"))
 
     # 5. Parse preprocessed_creepypastas.json (3,387 entries)
-    cp_path = os.path.join(source_dir, 'preprocessed_creepypastas.json')
+    cp_path = os.path.join(processing_dir, 'preprocessed_creepypastas.json')
     if os.path.exists(cp_path):
         print("-> Parsing preprocessed_creepypastas.json...")
         with open(cp_path, 'r', encoding='utf-8') as f:
@@ -316,22 +317,22 @@ def main():
                     edges.add((node_id, legend_id, "FEATURES"))
 
     # Write Nodes CSV
-    with open('nodes.csv', 'w', encoding='utf-8', newline='') as f:
+    with open(os.path.join(data_dir, 'nodes.csv'), 'w', encoding='utf-8', newline='') as f:
         writer = csv.writer(f)
         writer.writerow(["id", "name", "label"])
         for node in nodes.values():
             writer.writerow([node["id"], node["name"], node["label"]])
 
     # Write Edges CSV
-    with open('edges.csv', 'w', encoding='utf-8', newline='') as f:
+    with open(os.path.join(data_dir, 'edges.csv'), 'w', encoding='utf-8', newline='') as f:
         writer = csv.writer(f)
         writer.writerow(["source", "target", "type"])
         for edge in edges:
             writer.writerow(edge)
 
     print(f"\n--- Master Global Graph DB Build Complete (Exorcism Excluded) ---")
-    print(f"Total Nodes: {len(nodes)} (saved in nodes.csv)")
-    print(f"Total Edges: {len(edges)} (saved in edges.csv)")
+    print(f"Total Nodes: {len(nodes)} (saved in {data_dir}/nodes.csv)")
+    print(f"Total Edges: {len(edges)} (saved in {data_dir}/edges.csv)")
 
 if __name__ == '__main__':
     main()

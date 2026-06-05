@@ -9,7 +9,7 @@ from neo4j import GraphDatabase
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 def get_driver():
@@ -80,7 +80,7 @@ def run_import():
 
         # --- Region / Place 노드 생성 (한국 공포 데이터 기반) ---
         print("\nCreating Region and Place nodes from Korean horror data...")
-        korean_path = os.path.join(BASE_DIR, 'docs', 'verified_korean_horror_master.json')
+        korean_path = os.path.join(BASE_DIR, 'database', 'data', 'verified_korean_horror_master.json')
         if os.path.exists(korean_path):
             with open(korean_path, 'r', encoding='utf-8') as f:
                 korean_data = json.load(f)
@@ -122,7 +122,7 @@ def run_import():
 
         # --- 본문 바인딩 ---
         print("\nBinding original content text to nodes...")
-        docs_dir = os.path.join(BASE_DIR, 'docs')
+        docs_dir = os.path.join(BASE_DIR, 'database', 'data')
         preprocessing_dir = os.path.join(BASE_DIR, 'processing')
 
         # A. Korean master

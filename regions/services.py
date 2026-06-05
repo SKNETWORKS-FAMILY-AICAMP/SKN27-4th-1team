@@ -7,7 +7,7 @@ def get_neo4j_driver():
     """Dynamically resolves host name to avoid Docker container vs localhost confusion, then returns the Neo4j driver."""
     uri = os.getenv('NEO4J_URI', 'bolt://localhost:7687')
     user = os.getenv('NEO4J_USER', 'neo4j')
-    password = os.getenv('NEO4J_PASSWORD', 'rulemate1234')
+    password = os.getenv('NEO4J_PASSWORD', 'neo4j_password')
 
     try:
         host_part = uri.split("//")[1].split(":")[0]
@@ -16,6 +16,27 @@ def get_neo4j_driver():
         uri = f"bolt://localhost:7687"
 
     return GraphDatabase.driver(uri, auth=(user, password))
+
+def get_region_list():
+    """Returns all Region nodes with place counts."""
+    driver = get_neo4j_driver()
+    regions = []
+    try:
+        with driver.session() as session:
+            records = session.run("""
+            MATCH (r:Region)
+            OPTIONAL MATCH (r)-[:HAS_PLACE]->(p:Place)
+            RETURN r.name AS name, count(p) AS place_count
+            ORDER BY place_count DESC
+            """)
+            for r in records:
+                regions.append({'name': r['name'], 'place_count': r['place_count']})
+    except Exception as e:
+        print(f"Error fetching region list: {e}")
+    finally:
+        driver.close()
+    return regions
+
 
 def query_region_relations(region_name):
     """

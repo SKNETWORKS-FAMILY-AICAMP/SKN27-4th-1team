@@ -35,16 +35,16 @@ Neo4j가 `bolt://localhost:7687`에서 실행됩니다.
 ### Step 1. nodes.csv / edges.csv 생성
 
 ```bash
-python database/extract_all_graph_data.py
+python src/embedding/extract_all_graph_data.py
 ```
 
-- `docs/` 폴더의 JSON 파일들을 읽어 `docs/nodes.csv`, `docs/edges.csv` 를 생성합니다.
+- `database/data/` 폴더의 JSON 파일들을 읽어 `database/data/nodes.csv`, `database/data/edges.csv` 를 생성합니다.
 - 이미 파일이 있으면 덮어씁니다.
 
 ### Step 2. Neo4j에 데이터 로드
 
 ```bash
-python database/import_to_neo4j.py
+python src/embedding/import_to_neo4j.py
 ```
 
 - 기존 Neo4j 데이터를 전부 삭제하고 새로 로드합니다.
@@ -57,7 +57,7 @@ python database/import_to_neo4j.py
 ### Step 3. 벡터 임베딩 생성
 
 ```bash
-python database/embed_neo4j.py
+python src/embedding/embed_neo4j.py
 ```
 
 - `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` 모델을 로컬에서 실행합니다.
@@ -68,7 +68,7 @@ python database/embed_neo4j.py
 ### Step 4. 검증
 
 ```bash
-python database/verify_inspect.py
+python src/embedding/verify_inspect.py
 ```
 
 - 각 노드 유형의 본문 길이, 임베딩 차원, Region/Place 연결 수를 출력합니다.
@@ -93,8 +93,8 @@ NEO4J_AUTH=neo4j/neo4j_password  ← 여기 비밀번호와 같아야 함
 
 ```bash
 # Docker 컨테이너로 복사
-docker cp docs/nodes.csv goei_neo4j:/var/lib/neo4j/import/nodes.csv
-docker cp docs/edges.csv goei_neo4j:/var/lib/neo4j/import/edges.csv
+docker cp database/data/nodes.csv goei_neo4j:/var/lib/neo4j/import/nodes.csv
+docker cp database/data/edges.csv goei_neo4j:/var/lib/neo4j/import/edges.csv
 ```
 
 그 다음 Step 2를 다시 실행하세요.
@@ -114,5 +114,5 @@ python -c "from sentence_transformers import SentenceTransformer; SentenceTransf
 세팅 완료 후 검색이 잘 되는지 테스트할 수 있습니다.
 
 ```bash
-python database/test_graph_rag.py
+python src/embedding/test_graph_rag.py
 ```

@@ -1,10 +1,15 @@
 from django.shortcuts import render
 from django.http import JsonResponse
-from .services import query_region_relations
+from .services import query_region_relations, get_region_list
 
 
 def jidogam(request):
     return render(request, 'regions/jidogam.html')
+
+
+def region_list_api(request):
+    regions = get_region_list()
+    return JsonResponse({'status': 'success', 'regions': regions})
 
 
 def region_query_api(request):
