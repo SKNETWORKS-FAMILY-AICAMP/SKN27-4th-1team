@@ -20,8 +20,8 @@
       </header>
       <nav class="bbs-nav" aria-label="괴이실록 페이지">
         <a href="{% url 'archive:sillokgwan' %}">[ 1. 기록 열람실 ]</a>
-        <a href="/archive/geumgirok.html">[ 2. 금기 자료실 ]</a>
-        <a href="/generator/goeijejoso.html">[ 3. 신규 기록실 ]</a>
+        <a href="{% url 'archive:geumgirok' %}">[ 2. 금기 자료실 ]</a>
+        <a href="{% url 'generator:goeijejoso' %}">[ 3. 신규 기록실 ]</a>
         <a href="{% url 'post:witness_board' %}">[ 4. 열린 게시판 ]</a>
         <a href="{% url 'regions:jidogam' %}">[ 5. 지역 정보실 ]</a>
         <a href="{% url 'accounts:mygirok' %}">[ 6. 나의 보관함 ]</a>
@@ -333,6 +333,7 @@
       const postTitle = document.querySelector('#postTitle');
       const postRegion = document.querySelector('#postRegion');
       const postBody = document.querySelector('#postBody');
+      const initialParams = new URLSearchParams(window.location.search);
 
       writeButton.addEventListener('click', () => {
         if (!IS_AUTHENTICATED) {
@@ -487,6 +488,17 @@
           loadMoreWitnessPosts();
         }
       });
+
+      if (initialParams.get('tab') === 'creation') {
+        document.querySelector('#creationBoardTab')?.click();
+        const postedId = initialParams.get('post');
+        const postedCard = postedId ? document.querySelector(`#creationBoard [data-post-id="${postedId}"]`) : null;
+
+        if (postedCard) {
+          postedCard.focus();
+          postedCard.scrollIntoView({ block: 'nearest' });
+        }
+      }
     </script>
     <script src="{% static 'js/flicker.js' %}"></script>
   </body>

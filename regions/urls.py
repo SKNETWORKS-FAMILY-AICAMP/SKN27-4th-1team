@@ -5,6 +5,7 @@ app_name = 'regions'
 
 urlpatterns = [
     path('jidogam/', views.jidogam, name='jidogam'),
+    path('jidogam.html', views.jidogam, name='jidogam_html'),
     path('regioninfo/', views.jidogam, name='regioninfo'),
     path('list/', views.jidogam, name='list'),
     path('<str:region_name>/', views.jidogam, name='detail'),

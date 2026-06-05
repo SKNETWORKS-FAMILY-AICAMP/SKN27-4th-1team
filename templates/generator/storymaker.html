@@ -7,7 +7,7 @@
     <title>괴이 실록 - 신규 기록실</title>
     <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
   </head>
-  <body class="bbs-page">
+  <body class="bbs-page bbs-factory-page">
     <main class="bbs-screen">
       <header class="bbs-topbar">
         <span>archive://goei.sillok/lab</span>
@@ -68,7 +68,10 @@
         </form>
 
         <article class="factory-output" aria-label="생성된 괴담">
-          <div class="factory-section-title">생성 결과</div>
+          <div class="factory-output-header">
+            <div class="factory-section-title">생성 결과</div>
+            <button class="factory-post-button" id="publishCreationButton" type="button" disabled>창작담 게시</button>
+          </div>
           <div class="factory-story" id="factoryStory">
             <p><span class="bbs-system">SYS</span> 좌측 데이터를 입력하면 이곳에 괴담 초안이 출력됩니다.</p>
             <p><span class="bbs-bot">SYS</span> 연결 대기 중. 현재는 로컬 미리보기 모드입니다.</p>
@@ -79,6 +82,8 @@
     <script>
       const form = document.querySelector("#factoryForm");
       const story = document.querySelector("#factoryStory");
+      const publishCreationButton = document.querySelector("#publishCreationButton");
+      let publishPayload = null;
 
       function valueOf(id, fallback) {
         return document.querySelector(id).value.trim() || fallback;
@@ -99,8 +104,45 @@
         story.append(line);
       }
 
+      function csrfToken() {
+        const tokenInput = document.querySelector("[name=csrfmiddlewaretoken]");
+        if (tokenInput?.value) {
+          return tokenInput.value;
+        }
+
+        const cookie = document.cookie.split("; ").find((item) => item.startsWith("csrftoken="));
+        return cookie ? cookie.split("=")[1] : "";
+      }
+
+      function setPublishPayload(data, result) {
+        const bodyParts = [];
+
+        if (result.danger_level) {
+          bodyParts.push(`[위험도] ${result.danger_level}`);
+        }
+
+        if (result.content) {
+          bodyParts.push(result.content);
+        }
+
+        if (result.summary) {
+          bodyParts.push(`[요약] ${result.summary}`);
+        }
+
+        publishPayload = {
+          category: "CREATION",
+          title: result.title || `${data.place}의 ${data.entityType}`,
+          region: data.entityType || data.region || "창작담",
+          body: bodyParts.join("\n\n") || "생성 결과가 비어 있습니다.",
+        };
+
+        publishCreationButton.disabled = false;
+      }
+
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
+        publishPayload = null;
+        publishCreationButton.disabled = true;
 
         const data = {
           region: valueOf("#region", "지역 미상"),
@@ -146,10 +188,45 @@
           }
 
           appendLine("bbs-system", "SUMMARY", result.summary);
+          setPublishPayload(data, result);
 
         } catch (error) {
           story.replaceChildren();
           appendLine("bbs-system", "ERROR", "서버 통신 실패: " + error.message);
+        }
+      });
+
+      publishCreationButton.addEventListener("click", async () => {
+        if (!publishPayload) {
+          window.alert("먼저 괴담을 생성해 주세요.");
+          return;
+        }
+
+        publishCreationButton.disabled = true;
+
+        try {
+          const response = await fetch("{% url 'post:post_create_api' %}", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRFToken": csrfToken(),
+            },
+            body: JSON.stringify(publishPayload),
+          });
+          const result = await response.json();
+
+          if (result.status === "error") {
+            if (result.redirect) {
+              window.location.href = `${result.redirect}?next={% url 'generator:goeijejoso' %}`;
+              return;
+            }
+            throw new Error(result.message || "게시 실패");
+          }
+
+          window.location.href = `{% url 'post:witness_board' %}?tab=creation&post=${result.post.id}`;
+        } catch (error) {
+          publishCreationButton.disabled = false;
+          window.alert("창작담 게시 실패: " + error.message);
         }
       });
     </script>
