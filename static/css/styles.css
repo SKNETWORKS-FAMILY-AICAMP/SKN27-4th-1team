@@ -15,9 +15,14 @@
   box-sizing: border-box;
 }
 
+html {
+  overflow-x: hidden;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
+  max-width: 100%;
   overflow: hidden;
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
@@ -382,6 +387,7 @@ body {
 
 body.bbs-page {
   overflow: auto;
+  overflow-x: clip;
   color: #ff3030;
   font-family: "DungGeunMo", "Courier New", "D2Coding", "Nanum Gothic Coding", monospace;
   background:
@@ -404,6 +410,8 @@ body.bbs-page::before {
   content: "";
   position: fixed;
   inset: 0;
+  width: 100%;
+  height: 100%;
   z-index: 10;
   pointer-events: none;
   opacity: 0.24;
@@ -417,6 +425,8 @@ body.bbs-page::after {
   content: "";
   position: fixed;
   inset: 0;
+  width: 100%;
+  height: 100%;
   z-index: 11;
   pointer-events: none;
   opacity: 0;
@@ -431,12 +441,20 @@ body.bbs-page.page-flicker::after {
   animation: page-flicker 150ms steps(2, end) both;
 }
 
+body.page-flicker {
+  overflow: hidden !important;
+}
+
 .flicker-face {
   position: fixed;
   inset: 0;
+  width: 100%;
+  height: 100%;
   z-index: 12;
   pointer-events: none;
   opacity: 0;
+  overflow: hidden;
+  contain: paint;
   background:
     radial-gradient(circle at 50% 50%, transparent 0 28%, rgba(0, 0, 0, 0.62) 68%),
     url("../images/flicker-ghost.png") var(--flicker-face-x, 50%) var(--flicker-face-y, 50%) / contain no-repeat;
@@ -902,54 +920,44 @@ body.page-flicker .flicker-face {
 @keyframes page-flicker {
   0% {
     opacity: 0;
-    transform: translateX(0);
   }
 
   18% {
     opacity: 0.76;
-    transform: translateX(-3px);
   }
 
   46% {
     opacity: 0.18;
-    transform: translateX(2px);
   }
 
   72% {
     opacity: 0.86;
-    transform: translateX(3px);
   }
 
   100% {
     opacity: 0;
-    transform: translateX(0);
   }
 }
 
 @keyframes face-flicker {
   0% {
     opacity: 0;
-    transform: translateX(0) scale(1);
   }
 
   18% {
     opacity: 0.2;
-    transform: translateX(2px) scale(1.01);
   }
 
   46% {
     opacity: 0.14;
-    transform: translateX(-2px) scale(1.015);
   }
 
   72% {
     opacity: 0.2;
-    transform: translateX(1px) scale(1.01);
   }
 
   100% {
     opacity: 0;
-    transform: translateX(0) scale(1);
   }
 }
 
