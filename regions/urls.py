@@ -9,4 +9,5 @@ urlpatterns = [
     path('list/', views.jidogam, name='list'),
     path('<str:region_name>/', views.jidogam, name='detail'),
     path('api/query/', views.region_query_api, name='region_query_api'),
+    path('api/list/', views.region_list_api, name='region_list_api'),
 ]
