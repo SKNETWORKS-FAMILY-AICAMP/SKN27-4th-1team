@@ -13,7 +13,7 @@
         <span>archive://goei.sillok/taboo</span>
         <span>금기 자료실</span>
         {% if user.is_authenticated %}
-        <a class="bbs-login" href="{% url 'accounts:logout' %}">LOGOUT [{{ user.username }}]</a>
+        <a class="bbs-login" href="{% url 'accounts:logout' %}">LOGOUT</a>
         {% else %}
         <a class="bbs-login" href="{% url 'accounts:login' %}">LOGIN</a>
         {% endif %}

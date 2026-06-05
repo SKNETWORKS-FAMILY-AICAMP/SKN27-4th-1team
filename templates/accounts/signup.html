@@ -13,17 +13,22 @@
 
       <form class="login-form" action="{% url 'accounts:signup' %}" method="post">
         {% csrf_token %}
+        <input type="hidden" name="next" value="{{ next|default:'' }}" />
         <label>
           <span>ID</span>
-          <input type="text" name="username" autocomplete="username" />
+          <input type="text" name="username" value="{{ form.username.value|default:'' }}" autocomplete="username" />
         </label>
         <label>
           <span>PW</span>
           <input type="password" name="password" autocomplete="new-password" />
         </label>
         <label>
+          <span>PW2</span>
+          <input type="password" name="password_confirm" autocomplete="new-password" />
+        </label>
+        <label>
           <span>EMAIL</span>
-          <input type="email" name="email" autocomplete="email" />
+          <input type="email" name="email" value="{{ form.email.value|default:'' }}" autocomplete="email" />
         </label>
         <div class="login-actions">
           <button type="submit">CREATE</button>
@@ -48,6 +53,14 @@
       }
 
       window.setTimeout(typeNextLetter, 420);
+
+      document.querySelector(".login-form").addEventListener("submit", () => {
+        const csrfInput = document.querySelector('[name="csrfmiddlewaretoken"]');
+        const csrfCookie = document.cookie.split("; ").find((item) => item.startsWith("csrftoken="));
+        if (csrfInput && csrfCookie) {
+          csrfInput.value = decodeURIComponent(csrfCookie.split("=")[1]);
+        }
+      });
     </script>
     <script src="{% static 'js/flicker.js' %}"></script>
   </body>

@@ -13,7 +13,7 @@
         <span>archive://goei.sillok/my</span>
         <span>나의 보관함</span>
         {% if user.is_authenticated %}
-        <a class="bbs-login" href="{% url 'accounts:logout' %}">LOGOUT [{{ user.username }}]</a>
+        <a class="bbs-login" href="{% url 'accounts:logout' %}">LOGOUT</a>
         {% else %}
         <a class="bbs-login" href="{% url 'accounts:login' %}">LOGIN</a>
         {% endif %}
@@ -31,7 +31,12 @@
       <section class="my-record-shell" aria-label="나의 보관함">
         <header class="my-record-header">
           <h1>나의 보관함</h1>
-          <p>로그인한 사용자의 신규 기록실 생성 기록과 열린 게시판 작성글을 조회합니다.</p>
+          <p>
+            기록자 {{ profile.username }} /
+            EMAIL {{ profile.email|default:"미등록" }} /
+            가입 {{ profile.date_joined|date:"Y-m-d" }} /
+            보관 {{ profile.external_bookmark_count|add:profile.generated_bookmark_count|add:profile.post_bookmark_count }}
+          </p>
         </header>
 
         <div class="my-record-tabs" role="tablist" aria-label="나의 보관함 종류">
@@ -41,8 +46,39 @@
 
         <div class="my-record-panels">
           <section class="my-record-panel factory-record-list active" id="factoryRecords" role="tabpanel" aria-labelledby="factoryTab">
-            {% for bm in bookmarks %}
-              {% if bm.horror_type != 'Witness' %}
+            {% for story in generated_stories %}
+              <button
+                class="my-record-card factory-record-card"
+                type="button"
+                data-title="{{ story.title|default:'제목 없는 창작담' }}"
+                data-meta="신규 기록실 / {{ story.status|default:'DRAFT' }} / {{ story.region|default:'지역 미상' }} / {{ story.created_at|date:'Y-m-d' }}"
+                data-body="{{ story.content|default:'생성 내용이 없습니다.' }}"
+              >
+                <span class="record-status">{{ story.status|default:"DRAFT"|upper }}</span>
+                <span class="factory-record-title">{{ story.title|default:"제목 없는 창작담" }}</span>
+                <span>{{ story.region|default:"지역 미상" }}</span>
+                <span>{{ story.entity_type|default:"괴이" }}</span>
+                <span>{{ story.created_at|date:"Y-m-d" }}</span>
+              </button>
+            {% endfor %}
+
+            {% for bm in generated_bookmarks %}
+              <button
+                class="my-record-card factory-record-card"
+                type="button"
+                data-title="{{ bm.generated_story.title|default:'저장한 창작담' }}"
+                data-meta="신규 기록실 / BOOKMARK / {{ bm.generated_story.region|default:'지역 미상' }} / {{ bm.created_at|date:'Y-m-d' }}"
+                data-body="{{ bm.generated_story.content|default:'보관된 생성 기록입니다.' }}"
+              >
+                <span class="record-status">SAVED</span>
+                <span class="factory-record-title">{{ bm.generated_story.title|default:"저장한 창작담" }}</span>
+                <span>{{ bm.generated_story.region|default:"지역 미상" }}</span>
+                <span>{{ bm.generated_story.entity_type|default:"괴이" }}</span>
+                <span>{{ bm.created_at|date:"Y-m-d" }}</span>
+              </button>
+            {% endfor %}
+
+            {% for bm in factory_bookmarks %}
               <button
                 class="my-record-card factory-record-card"
                 type="button"
@@ -55,15 +91,43 @@
                 <span>{{ bm.horror_type }}</span>
                 <span>{{ bm.created_at|date:'Y-m-d' }}</span>
               </button>
-              {% endif %}
-            {% empty %}
-              <p class="bbs-empty">보관된 기록이 없습니다.</p>
             {% endfor %}
+
+            {% if not generated_stories and not generated_bookmarks and not factory_bookmarks %}
+              <p class="bbs-empty">보관된 기록이 없습니다.</p>
+            {% endif %}
           </section>
 
           <section class="my-record-panel witness-record-list" id="witnessRecords" role="tabpanel" aria-labelledby="witnessTab" hidden>
-            {% for bm in bookmarks %}
-              {% if bm.horror_type == 'Witness' %}
+            {% for post in user_posts %}
+              <button
+                class="my-record-card witness-record-card"
+                type="button"
+                data-title="{{ post.title }}"
+                data-meta="열린 게시판 / {{ post.category }} / {{ post.region|default:'지역 미상' }} / {{ post.created_at|date:'Y-m-d' }}"
+                data-body="{{ post.body }}"
+              >
+                <span class="record-status">POSTED</span>
+                <h2>{{ post.title }}</h2>
+                <p>{{ post.region|default:"지역 미상" }} / {{ post.created_at|date:"Y-m-d" }}</p>
+              </button>
+            {% endfor %}
+
+            {% for bm in post_bookmarks %}
+              <button
+                class="my-record-card witness-record-card"
+                type="button"
+                data-title="{{ bm.post.title }}"
+                data-meta="열린 게시판 / BOOKMARK / {{ bm.post.region|default:'지역 미상' }} / {{ bm.created_at|date:'Y-m-d' }}"
+                data-body="{{ bm.post.body }}"
+              >
+                <span class="record-status">SAVED</span>
+                <h2>{{ bm.post.title }}</h2>
+                <p>{{ bm.post.region|default:"지역 미상" }} / {{ bm.created_at|date:"Y-m-d" }}</p>
+              </button>
+            {% endfor %}
+
+            {% for bm in witness_bookmarks %}
               <button
                 class="my-record-card witness-record-card"
                 type="button"
@@ -75,10 +139,11 @@
                 <h2>{{ bm.horror_title }}</h2>
                 <p>{{ bm.created_at|date:'Y-m-d' }}</p>
               </button>
-              {% endif %}
-            {% empty %}
-              <p class="bbs-empty">보관된 기록이 없습니다.</p>
             {% endfor %}
+
+            {% if not user_posts and not post_bookmarks and not witness_bookmarks %}
+              <p class="bbs-empty">보관된 기록이 없습니다.</p>
+            {% endif %}
           </section>
         </div>
 

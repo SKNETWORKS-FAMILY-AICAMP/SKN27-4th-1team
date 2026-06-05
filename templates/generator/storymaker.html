@@ -12,7 +12,11 @@
       <header class="bbs-topbar">
         <span>archive://goei.sillok/lab</span>
         <span>신규 기록실</span>
+        {% if user.is_authenticated %}
+        <a class="bbs-login" href="{% url 'accounts:logout' %}">LOGOUT</a>
+        {% else %}
         <a class="bbs-login" href="{% url 'accounts:login' %}">LOGIN</a>
+        {% endif %}
       </header>
       <nav class="bbs-nav" aria-label="괴이실록 페이지">
         <a href="{% url 'archive:sillokgwan' %}">[ 1. 기록 열람실 ]</a>
@@ -105,13 +109,13 @@
       }
 
       function csrfToken() {
-        const tokenInput = document.querySelector("[name=csrfmiddlewaretoken]");
-        if (tokenInput?.value) {
-          return tokenInput.value;
+        const cookie = document.cookie.split("; ").find((item) => item.startsWith("csrftoken="));
+        if (cookie) {
+          return decodeURIComponent(cookie.split("=")[1]);
         }
 
-        const cookie = document.cookie.split("; ").find((item) => item.startsWith("csrftoken="));
-        return cookie ? cookie.split("=")[1] : "";
+        const tokenInput = document.querySelector("[name=csrfmiddlewaretoken]");
+        return tokenInput?.value || "";
       }
 
       function setPublishPayload(data, result) {
@@ -128,7 +132,7 @@
         publishPayload = {
           category: "CREATION",
           title: result.title || `${data.place}의 ${data.entityType}`,
-          region: data.entityType || data.region || "창작담",
+          region: data.region || "지역 미상",
           body: bodyParts.join("\n\n") || "생성 결과가 비어 있습니다.",
         };
 
@@ -154,12 +158,11 @@
         appendLine("bbs-system", "SYS", "서버와 연결 중... 괴담을 생성하고 있습니다.");
 
         try {
-          const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
           const response = await fetch("{% url 'generator:generate' %}", {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'X-CSRFToken': csrfToken
+              'X-CSRFToken': csrfToken()
             },
             body: JSON.stringify(data)
           });
@@ -208,6 +211,19 @@
             },
             body: JSON.stringify(publishPayload),
           });
+
+          const contentType = response.headers.get("content-type") || "";
+          if (!contentType.includes("application/json")) {
+            if (response.status === 403) {
+              throw new Error("인증 토큰이 만료되었습니다. 새로고침 후 다시 시도해 주세요.");
+            }
+            if (response.redirected || response.url.includes("{% url 'accounts:login' %}")) {
+              window.location.href = `{% url 'accounts:login' %}?next={% url 'generator:goeijejoso' %}`;
+              return;
+            }
+            throw new Error(`게시 실패: HTTP ${response.status}`);
+          }
+
           const result = await response.json();
 
           if (result.status === "error") {

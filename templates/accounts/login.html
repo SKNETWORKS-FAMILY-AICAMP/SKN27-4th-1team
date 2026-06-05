@@ -13,9 +13,10 @@
 
       <form class="login-form" id="loginForm" action="{% url 'accounts:login' %}" method="post">
         {% csrf_token %}
+        <input type="hidden" name="next" value="{{ next|default:'' }}" />
         <label>
           <span>ID</span>
-          <input type="text" name="username" autocomplete="username" />
+          <input type="text" name="username" value="{{ form.username.value|default:'' }}" autocomplete="username" />
         </label>
         <label>
           <span>PW</span>
@@ -49,6 +50,12 @@
       window.setTimeout(typeNextLetter, 420);
 
       form.addEventListener("submit", (event) => {
+        const csrfInput = form.querySelector('[name="csrfmiddlewaretoken"]');
+        const csrfCookie = document.cookie.split("; ").find((item) => item.startsWith("csrftoken="));
+        if (csrfInput && csrfCookie) {
+          csrfInput.value = decodeURIComponent(csrfCookie.split("=")[1]);
+        }
+
         const username = form.querySelector('[name="username"]').value.trim();
         const password = form.querySelector('[name="password"]').value.trim();
         if (!username || !password) {
