@@ -8,6 +8,5 @@ def parse_llm_response(raw_text: str) -> dict:
         return {
             "title": "기록 오염 발생",
             "content": "데이터 파싱에 실패했습니다.",
-            "danger_level": "등급 미상",
             "summary": "시스템 오류"
         }
