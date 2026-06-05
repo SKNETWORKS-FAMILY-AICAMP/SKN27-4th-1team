@@ -181,7 +181,7 @@ def run_import():
             ]
             session.run("""
             UNWIND $batch AS row MATCH (s:Story {id: row.id})
-            SET s.body = CASE WHEN row.body <> '' THEN row.body ELSE s.body END
+            SET s.body = CASE WHEN row.body <> '' AND s.body IS NULL THEN row.body ELSE s.body END
             """, batch=reddit_updates)
 
         # D. SCP
@@ -211,7 +211,7 @@ def run_import():
             ]
             session.run("""
             UNWIND $batch AS row MATCH (s:Story {id: row.id})
-            SET s.body = CASE WHEN row.body <> '' THEN row.body ELSE s.body END
+            SET s.body = CASE WHEN row.body <> '' AND s.body IS NULL THEN row.body ELSE s.body END
             """, batch=cp_updates)
 
         # --- 엣지 로드 ---
