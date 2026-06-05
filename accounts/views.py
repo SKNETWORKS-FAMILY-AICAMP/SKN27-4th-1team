@@ -90,6 +90,7 @@ def logout(request):
     return redirect('home')
 
 
+@ensure_csrf_cookie
 @login_required(login_url='accounts:login')
 def mypage(request):
     bookmarks = services.list_external_bookmarks(request.user)
@@ -97,6 +98,8 @@ def mypage(request):
     witness_bookmarks = [item for item in bookmarks if item.horror_type == 'Witness']
     generated_bookmarks = services.list_generated_story_bookmarks(request.user)
     post_bookmarks = services.list_post_bookmarks(request.user)
+    creation_post_bookmarks = [item for item in post_bookmarks if item.post.category == 'CREATION']
+    witness_post_bookmarks = [item for item in post_bookmarks if item.post.category == 'WITNESS']
     profile = services.get_user_profile(request.user)
 
     try:
@@ -111,15 +114,20 @@ def mypage(request):
     except (ImportError, AttributeError):
         user_posts = []
 
+    creation_posts = [post for post in user_posts if post.category == 'CREATION']
+    witness_posts = [post for post in user_posts if post.category == 'WITNESS']
+
     return render(request, 'accounts/mygirok.html', {
         'profile': profile,
         'bookmarks': bookmarks,
         'factory_bookmarks': factory_bookmarks,
         'witness_bookmarks': witness_bookmarks,
         'generated_bookmarks': generated_bookmarks,
-        'post_bookmarks': post_bookmarks,
+        'creation_post_bookmarks': creation_post_bookmarks,
+        'witness_post_bookmarks': witness_post_bookmarks,
         'generated_stories': generated_stories,
-        'user_posts': user_posts,
+        'creation_posts': creation_posts,
+        'witness_posts': witness_posts,
     })
 
 
