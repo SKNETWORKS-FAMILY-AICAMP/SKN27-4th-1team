@@ -29,7 +29,7 @@ def run_migration():
         "mypage.html": "templates/accounts/mygirok.html",
         "storymaker.html": "templates/generator/goeijejoso.html",
         "community.html": "templates/post/mokgyeokgirok.html",
-        "regioninfo.html": "templates/regions/jidogam.html"
+        "regioninfo.html": "templates/regions/regioninfo.html"
     }
     
     # Destination directories for static assets
