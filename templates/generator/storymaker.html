@@ -117,10 +117,6 @@
       function setPublishPayload(data, result) {
         const bodyParts = [];
 
-        if (result.danger_level) {
-          bodyParts.push(`[위험도] ${result.danger_level}`);
-        }
-
         if (result.content) {
           bodyParts.push(result.content);
         }
@@ -177,7 +173,6 @@
           story.replaceChildren();
           appendLine("bbs-system", "SYS", "기록 수신 완료.");
           appendLine("bbs-bot", "TITLE", result.title);
-          appendLine("bbs-bot", "DANGER", result.danger_level);
           
           // 본문 줄바꿈 처리
           if (result.content) {
