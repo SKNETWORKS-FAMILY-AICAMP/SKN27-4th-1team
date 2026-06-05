@@ -175,7 +175,7 @@
         bodySpan.textContent = '내용';
         const bodyTextarea = document.createElement('textarea');
         bodyTextarea.rows = 5;
-        bodyTextarea.textContent = post.body;
+        bodyTextarea.value = post.body;
         bodyLabel.append(bodySpan, bodyTextarea);
 
         const actions = document.createElement('div');
@@ -190,6 +190,9 @@
         actions.append(saveBtn, cancelBtn);
 
         form.append(titleLabel, regionLabel, bodyLabel, actions);
+        form.addEventListener('click', e => {
+          e.stopPropagation();
+        });
         form.addEventListener('submit', async e => {
           e.preventDefault();
           const result = await apiPost(`/post/api/edit/${post.id}/`, {
@@ -212,7 +215,10 @@
       }
 
       async function bindPostCard(card) {
-        card.addEventListener('click', async () => {
+        card.addEventListener('click', async e => {
+          const interactiveTarget = e.target.closest('form, button, input, textarea');
+          if (interactiveTarget && interactiveTarget !== card) return;
+
           const isExpanded = card.classList.contains('expanded');
           closeExpandedPosts();
           if (isExpanded) return;
