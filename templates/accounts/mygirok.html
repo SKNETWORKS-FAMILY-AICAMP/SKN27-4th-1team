@@ -1,0 +1,139 @@
+{% load static %}
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>괴이 실록 - 나의 보관함</title>
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+  </head>
+  <body class="bbs-page">
+    <main class="bbs-screen">
+      <header class="bbs-topbar">
+        <span>archive://goei.sillok/my</span>
+        <span>나의 보관함</span>
+        {% if user.is_authenticated %}
+        <a class="bbs-login" href="{% url 'accounts:logout' %}">LOGOUT [{{ user.username }}]</a>
+        {% else %}
+        <a class="bbs-login" href="{% url 'accounts:login' %}">LOGIN</a>
+        {% endif %}
+      </header>
+
+      <nav class="bbs-nav" aria-label="괴이실록 페이지">
+        <a href="{% url 'archive:sillokgwan' %}">[ 1. 기록 열람실 ]</a>
+        <a href="/archive/geumgirok.html">[ 2. 금기 자료실 ]</a>
+        <a href="/generator/goeijejoso.html">[ 3. 신규 기록실 ]</a>
+        <a href="{% url 'post:witness_board' %}">[ 4. 열린 게시판 ]</a>
+        <a href="{% url 'regions:jidogam' %}">[ 5. 지역 정보실 ]</a>
+        <a href="{% url 'accounts:mygirok' %}">[ 6. 나의 보관함 ]</a>
+      </nav>
+
+      <section class="my-record-shell" aria-label="나의 보관함">
+        <header class="my-record-header">
+          <h1>나의 보관함</h1>
+          <p>로그인한 사용자의 신규 기록실 생성 기록과 열린 게시판 작성글을 조회합니다.</p>
+        </header>
+
+        <div class="my-record-tabs" role="tablist" aria-label="나의 보관함 종류">
+          <button id="factoryTab" class="my-record-tab active" type="button" role="tab" aria-selected="true" aria-controls="factoryRecords">창작담 기록</button>
+          <button id="witnessTab" class="my-record-tab" type="button" role="tab" aria-selected="false" aria-controls="witnessRecords">목격담 기록</button>
+        </div>
+
+        <div class="my-record-panels">
+          <section class="my-record-panel factory-record-list active" id="factoryRecords" role="tabpanel" aria-labelledby="factoryTab">
+            {% for bm in bookmarks %}
+              {% if bm.horror_type != 'Witness' %}
+              <button
+                class="my-record-card factory-record-card"
+                type="button"
+                data-title="{{ bm.horror_title }}"
+                data-meta="기록 열람실 / SAVED / {{ bm.horror_type }} / {{ bm.created_at|date:'Y-m-d' }}"
+                data-body="{{ bm.horror_title }} 기록이 보관함에 저장되었습니다."
+              >
+                <span class="record-status">SAVED</span>
+                <span class="factory-record-title">{{ bm.horror_title }}</span>
+                <span>{{ bm.horror_type }}</span>
+                <span>{{ bm.created_at|date:'Y-m-d' }}</span>
+              </button>
+              {% endif %}
+            {% empty %}
+              <p class="bbs-empty">보관된 기록이 없습니다.</p>
+            {% endfor %}
+          </section>
+
+          <section class="my-record-panel witness-record-list" id="witnessRecords" role="tabpanel" aria-labelledby="witnessTab" hidden>
+            {% for bm in bookmarks %}
+              {% if bm.horror_type == 'Witness' %}
+              <button
+                class="my-record-card witness-record-card"
+                type="button"
+                data-title="{{ bm.horror_title }}"
+                data-meta="열린 게시판 / POSTED / {{ bm.created_at|date:'Y-m-d' }}"
+                data-body="{{ bm.horror_title }} 기록이 보관함에 저장되었습니다."
+              >
+                <span class="record-status">POSTED</span>
+                <h2>{{ bm.horror_title }}</h2>
+                <p>{{ bm.created_at|date:'Y-m-d' }}</p>
+              </button>
+              {% endif %}
+            {% empty %}
+              <p class="bbs-empty">보관된 기록이 없습니다.</p>
+            {% endfor %}
+          </section>
+        </div>
+
+      </section>
+    </main>
+    <script>
+      const tabs = document.querySelectorAll(".my-record-tab");
+      const panels = document.querySelectorAll(".my-record-panel");
+      const cards = document.querySelectorAll(".my-record-card");
+
+      tabs.forEach((tab) => {
+        tab.addEventListener("click", () => {
+          tabs.forEach((item) => {
+            item.classList.toggle("active", item === tab);
+            item.setAttribute("aria-selected", String(item === tab));
+          });
+
+          panels.forEach((panel) => {
+            const isActive = panel.id === tab.getAttribute("aria-controls");
+            panel.classList.toggle("active", isActive);
+            panel.hidden = !isActive;
+          });
+
+          cards.forEach((item) => item.classList.remove("selected"));
+          document.querySelectorAll(".inline-record-detail").forEach((detail) => detail.remove());
+        });
+      });
+
+      cards.forEach((card) => {
+        card.addEventListener("click", () => {
+          const isSelected = card.classList.contains("selected");
+
+          cards.forEach((item) => item.classList.remove("selected"));
+          document.querySelectorAll(".inline-record-detail").forEach((detail) => detail.remove());
+
+          if (isSelected) {
+            return;
+          }
+
+          const meta = document.createElement("p");
+          const body = document.createElement("p");
+          const detail = document.createElement("div");
+
+          card.classList.add("selected");
+          detail.className = "inline-record-detail";
+          meta.className = "detail-meta";
+          meta.textContent = card.dataset.meta;
+          body.className = "detail-body";
+          body.textContent = card.dataset.body;
+
+          detail.append(meta, body);
+          card.append(detail);
+        });
+      });
+    </script>
+    <script src="{% static 'js/flicker.js' %}"></script>
+  </body>
+</html>
