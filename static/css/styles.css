@@ -1304,6 +1304,7 @@ body.bbs-factory-page {
 
 .factory-story {
   display: grid;
+  align-content: start;
   gap: 10px;
   color: #ff4b4b;
   font-size: clamp(15px, 2vw, 20px);
