@@ -6,125 +6,490 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>괴이 실록 - 지역 정보실</title>
     <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+    <style>
+      .map-layout {
+        display: flex;
+        gap: 12px;
+        height: calc(100vh - 140px);
+        min-height: 480px;
+      }
+      .map-section {
+        flex: 1 1 0;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        min-width: 0;
+      }
+      .bbs-map-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.78rem;
+        color: #ff4b4b;
+      }
+      .bbs-map-toolbar button {
+        background: none;
+        border: 1px solid #ff4b4b44;
+        color: #ff4b4b;
+        padding: 2px 10px;
+        cursor: pointer;
+        font-family: inherit;
+        font-size: 0.78rem;
+      }
+      .bbs-map-toolbar button:hover { border-color: #ff4b4b; }
+      .bbs-map-container {
+        flex: 1;
+        position: relative;
+        overflow: hidden;
+        border: 1px solid #ff4b4b22;
+        cursor: grab;
+        background: #0a0a0a;
+      }
+      .bbs-map-container.dragging { cursor: grabbing; }
+      /* 이미지 + 핀을 같이 감싸는 wrapper — transform 여기 적용 */
+      .map-inner {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform-origin: center center;
+        user-select: none;
+      }
+      .bbs-map-image {
+        display: block;
+        pointer-events: none;
+        max-width: none;
+      }
+      .map-pins {
+        position: absolute;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        pointer-events: none;
+      }
+      .map-pin {
+        position: absolute;
+        pointer-events: all;
+        transform: translate(-50%, -50%);
+      }
+      .map-pin button {
+        background: #0a0a0acc;
+        border: 1px solid #ff4b4b88;
+        color: #ff4b4b;
+        font-family: inherit;
+        font-size: 0.68rem;
+        padding: 3px 8px;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: background 0.15s, border-color 0.15s;
+      }
+      .map-pin button:hover,
+      .map-pin button.active {
+        background: #ff4b4b22;
+        border-color: #ff4b4b;
+        color: #ffb3b3;
+      }
+      .region-panel {
+        width: 280px;
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        border: 1px solid #ff4b4b22;
+        background: #0d0d0d;
+        overflow: hidden;
+      }
+      .region-panel-header {
+        padding: 10px 12px;
+        border-bottom: 1px solid #ff4b4b22;
+        font-size: 0.75rem;
+        color: #ff4b4b88;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .region-panel-title { color: #ff4b4b; font-size: 0.85rem; font-weight: bold; }
+      .region-panel-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 10px 12px;
+        scrollbar-width: thin;
+        scrollbar-color: #ff4b4b33 transparent;
+      }
+      .region-panel-body::-webkit-scrollbar { width: 4px; }
+      .region-panel-body::-webkit-scrollbar-thumb { background: #ff4b4b33; }
+      .region-placeholder {
+        color: #ff4b4b44;
+        font-size: 0.75rem;
+        line-height: 1.8;
+        margin-top: 20px;
+        text-align: center;
+      }
+      .place-item {
+        margin-bottom: 14px;
+        border-bottom: 1px solid #ff4b4b11;
+        padding-bottom: 12px;
+      }
+      .place-name { color: #ffb3b3; font-size: 0.8rem; margin-bottom: 4px; }
+      .place-desc { color: #ff4b4b66; font-size: 0.7rem; margin-bottom: 6px; line-height: 1.5; }
+      .story-list { display: flex; flex-direction: column; gap: 4px; }
+      .story-item {
+        background: #ff4b4b08;
+        border: 1px solid #ff4b4b18;
+        padding: 5px 8px;
+        cursor: pointer;
+      }
+      .story-item:hover { background: #ff4b4b18; border-color: #ff4b4b44; }
+      .story-type { font-size: 0.62rem; color: #ff4b4b55; margin-bottom: 2px; }
+      .story-name { font-size: 0.72rem; color: #ff4b4b; }
+      .story-preview { font-size: 0.65rem; color: #ff4b4b55; margin-top: 3px; line-height: 1.4; }
+      .story-modal {
+        position: fixed;
+        inset: 0;
+        background: #000000cc;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 100;
+      }
+      .story-modal[hidden] { display: none; }
+      .story-modal-inner {
+        background: #0d0d0d;
+        border: 1px solid #ff4b4b44;
+        width: min(560px, 90vw);
+        max-height: 80vh;
+        display: flex;
+        flex-direction: column;
+        padding: 20px;
+        gap: 10px;
+      }
+      .story-modal-title { color: #ff4b4b; font-size: 1rem; }
+      .story-modal-meta { color: #ff4b4b55; font-size: 0.72rem; }
+      .story-modal-body {
+        color: #ffb3b3cc;
+        font-size: 0.78rem;
+        line-height: 1.8;
+        overflow-y: auto;
+        flex: 1;
+        white-space: pre-wrap;
+        scrollbar-width: thin;
+        scrollbar-color: #ff4b4b33 transparent;
+      }
+      .story-modal-body::-webkit-scrollbar { width: 4px; }
+      .story-modal-body::-webkit-scrollbar-thumb { background: #ff4b4b33; }
+      .story-modal-close {
+        align-self: flex-end;
+        background: none;
+        border: 1px solid #ff4b4b44;
+        color: #ff4b4b;
+        font-family: inherit;
+        font-size: 0.75rem;
+        padding: 4px 14px;
+        cursor: pointer;
+      }
+      .story-modal-close:hover { border-color: #ff4b4b; }
+      .loading-text {
+        color: #ff4b4b66;
+        font-size: 0.75rem;
+        text-align: center;
+        margin-top: 20px;
+        animation: blink 1s step-end infinite;
+      }
+      @keyframes blink { 50% { opacity: 0; } }
+
+      /* 폴더 트리 */
+      .folder-item { margin-bottom: 4px; }
+      .folder-header {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 6px;
+        cursor: pointer;
+        color: #ffb3b3;
+        font-size: 0.78rem;
+        border: 1px solid transparent;
+        user-select: none;
+      }
+      .folder-header:hover { background: #ff4b4b11; border-color: #ff4b4b22; }
+      .folder-arrow { font-size: 0.6rem; color: #ff4b4b66; transition: transform 0.15s; }
+      .folder-arrow.open { transform: rotate(90deg); }
+      .folder-icon { color: #ff4b4b88; }
+      .folder-name { flex: 1; }
+      .folder-count { font-size: 0.65rem; color: #ff4b4b44; }
+      .folder-children { display: none; padding-left: 16px; }
+      .folder-children.open { display: block; }
+      .file-item {
+        padding: 4px 6px;
+        font-size: 0.7rem;
+        color: #ff4b4b;
+        cursor: pointer;
+        border: 1px solid transparent;
+        margin-bottom: 2px;
+        display: flex;
+        gap: 5px;
+        align-items: flex-start;
+      }
+      .file-item:hover { background: #ff4b4b18; border-color: #ff4b4b33; }
+      .file-icon { color: #ff4b4b44; flex-shrink: 0; margin-top: 1px; }
+      .file-name { line-height: 1.4; }
+    </style>
   </head>
   <body class="bbs-page bbs-map-page">
     <main class="bbs-screen">
       <header class="bbs-topbar">
         <span>archive://goei.sillok/map</span>
         <span>지역 정보실</span>
+        {% if user.is_authenticated %}
+        <a class="bbs-login" href="{% url 'accounts:logout' %}">LOGOUT [{{ user.username }}]</a>
+        {% else %}
         <a class="bbs-login" href="{% url 'accounts:login' %}">LOGIN</a>
+        {% endif %}
       </header>
 
       <nav class="bbs-nav" aria-label="괴이실록 페이지">
         <a href="{% url 'archive:sillokgwan' %}">[ 1. 기록 열람실 ]</a>
         <a href="{% url 'archive:geumgirok' %}">[ 2. 금기 자료실 ]</a>
         <a href="{% url 'generator:goeijejoso' %}">[ 3. 신규 기록실 ]</a>
-        <a href="{% url 'post:mokgyeokgirok' %}">[ 4. 열린 게시판 ]</a>
+        <a href="{% url 'post:witness_board' %}">[ 4. 열린 게시판 ]</a>
         <a href="{% url 'regions:jidogam' %}">[ 5. 지역 정보실 ]</a>
-        <a href="{% url 'accounts:mypage' %}">[ 6. 나의 보관함 ]</a>
+        <a href="{% url 'accounts:mygirok' %}">[ 6. 나의 보관함 ]</a>
       </nav>
 
-      <section class="bbs-chat">
+      <section class="bbs-chat" style="flex:1; display:flex; flex-direction:column;">
         <div class="bbs-chat-title">
-          <span>▶ HOT</span>
-          <span>괴이 분포 지도</span>
+          <span>▶ MAP</span>
+          <span>괴이 분포 지도 — 지역을 선택하면 기록이 열립니다</span>
         </div>
 
-        <div class="bbs-map-toolbar" aria-label="지도 확대 축소">
-          <button type="button" id="zoomOut">-</button>
-          <output id="zoomLevel" aria-live="polite">80%</output>
-          <button type="button" id="zoomIn">+</button>
-          <button type="button" id="zoomReset">RESET</button>
-        </div>
+        <div class="map-layout">
+          <div class="map-section">
+            <div class="bbs-map-toolbar" aria-label="지도 확대 축소">
+              <button type="button" id="zoomOut">-</button>
+              <output id="zoomLevel" aria-live="polite">80%</output>
+              <button type="button" id="zoomIn">+</button>
+              <button type="button" id="zoomReset">RESET</button>
+            </div>
 
-        <div class="bbs-map-container" id="mapViewport">
-          <img
-            id="mapImage"
-            src="{% static 'images/goei_map_thin_red.png' %}"
-            alt="괴이실록 지역 정보실 지도"
-            class="bbs-map-image"
-          />
+            <div class="bbs-map-container" id="mapViewport">
+              <div class="map-inner" id="mapInner">
+                <img
+                  id="mapImage"
+                  src="{% static 'images/goei_map_thin_red.png' %}"
+                  alt="괴이실록 지역 정보실 지도"
+                  class="bbs-map-image"
+                />
+                <div class="map-pins" id="mapPins"></div>
+              </div>
+            </div>
+          </div>
+
+          <aside class="region-panel" aria-label="지역 괴담 기록">
+            <div class="region-panel-header">
+              <span class="region-panel-title" id="panelRegionName">지역 미선택</span>
+              <span id="panelCount"></span>
+            </div>
+            <div class="region-panel-body" id="panelBody">
+              <p class="region-placeholder">
+                지도에서 지역을 클릭하면<br>해당 지역의 괴이 기록이<br>이곳에 표시됩니다.
+              </p>
+            </div>
+          </aside>
         </div>
       </section>
     </main>
 
+    <div class="story-modal" id="storyModal" hidden role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="story-modal-inner">
+        <div class="story-modal-title" id="modalTitle"></div>
+        <div class="story-modal-meta" id="modalMeta"></div>
+        <div class="story-modal-body" id="modalBody"></div>
+        <button class="story-modal-close" id="modalClose">[ 닫기 ]</button>
+      </div>
+    </div>
+
     <script>
-      const mapImage = document.querySelector("#mapImage");
-      const mapViewport = document.querySelector("#mapViewport");
-      const zoomLevel = document.querySelector("#zoomLevel");
-      const zoomIn = document.querySelector("#zoomIn");
-      const zoomOut = document.querySelector("#zoomOut");
-      const zoomReset = document.querySelector("#zoomReset");
+      const mapInner = document.getElementById('mapInner');
+      const mapViewport = document.getElementById('mapViewport');
+      const zoomLevelEl = document.getElementById('zoomLevel');
+      let zoom = 0.8, panX = 0, panY = 0;
+      let isDragging = false, dragStartX = 0, dragStartY = 0, startPanX = 0, startPanY = 0;
 
-      let zoom = 0.8;
-      const minZoom = 0.55;
-      const maxZoom = 2.2;
-      const step = 0.15;
-      let panX = 0;
-      let panY = 0;
-      let isDragging = false;
-      let dragStartX = 0;
-      let dragStartY = 0;
-      let startPanX = 0;
-      let startPanY = 0;
-
-      function applyMapTransform() {
-        mapImage.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
-        zoomLevel.textContent = `${Math.round(zoom * 100)}%`;
+      function applyTransform() {
+        mapInner.style.transform = `translate(calc(-50% + ${panX}px), calc(-50% + ${panY}px)) scale(${zoom})`;
+        zoomLevelEl.textContent = `${Math.round(zoom * 100)}%`;
       }
 
-      zoomIn.addEventListener("click", () => {
-        zoom = Math.min(maxZoom, zoom + step);
-        applyMapTransform();
-      });
+      document.getElementById('zoomIn').addEventListener('click', () => { zoom = Math.min(2.2, zoom + 0.15); applyTransform(); });
+      document.getElementById('zoomOut').addEventListener('click', () => { zoom = Math.max(0.55, zoom - 0.15); applyTransform(); });
+      document.getElementById('zoomReset').addEventListener('click', () => { zoom = 0.8; panX = 0; panY = 0; applyTransform(); });
 
-      zoomOut.addEventListener("click", () => {
-        zoom = Math.max(minZoom, zoom - step);
-        applyMapTransform();
+      mapViewport.addEventListener('pointerdown', e => {
+        if (e.target.tagName === 'BUTTON') return;
+        isDragging = true; dragStartX = e.clientX; dragStartY = e.clientY;
+        startPanX = panX; startPanY = panY;
+        mapViewport.classList.add('dragging');
+        mapViewport.setPointerCapture(e.pointerId);
       });
-
-      zoomReset.addEventListener("click", () => {
-        zoom = 0.8;
-        panX = 0;
-        panY = 0;
-        applyMapTransform();
-      });
-
-      mapViewport.addEventListener("pointerdown", (event) => {
-        isDragging = true;
-        dragStartX = event.clientX;
-        dragStartY = event.clientY;
-        startPanX = panX;
-        startPanY = panY;
-        mapViewport.classList.add("dragging");
-        mapViewport.setPointerCapture(event.pointerId);
-      });
-
-      mapViewport.addEventListener("pointermove", (event) => {
+      mapViewport.addEventListener('pointermove', e => {
         if (!isDragging) return;
-
-        panX = startPanX + event.clientX - dragStartX;
-        panY = startPanY + event.clientY - dragStartY;
-        applyMapTransform();
+        panX = startPanX + e.clientX - dragStartX;
+        panY = startPanY + e.clientY - dragStartY;
+        applyTransform();
       });
-
-      function stopDragging(event) {
+      const stopDrag = e => {
         isDragging = false;
-        mapViewport.classList.remove("dragging");
-        if (mapViewport.hasPointerCapture(event.pointerId)) {
-          mapViewport.releasePointerCapture(event.pointerId);
-        }
+        mapViewport.classList.remove('dragging');
+        if (mapViewport.hasPointerCapture(e.pointerId)) mapViewport.releasePointerCapture(e.pointerId);
+      };
+      mapViewport.addEventListener('pointerup', stopDrag);
+      mapViewport.addEventListener('pointercancel', stopDrag);
+      applyTransform();
+
+      // 지역 버튼 위치 (지리 좌표 기반) — 지도에 없는 국가는 null
+      const PIN_POSITIONS = {
+        '한국':        { top: '62%', left: '63%' },
+        '일본':        { top: '60%', left: '72%' },
+        '중국':        { top: '63%', left: '51%' },
+        '인도':        { top: '76%', left: '33%' },
+        '필리핀':      { top: '83%', left: '62%' },
+        '태국':        { top: '82%', left: '48%' },
+        '티베트/네팔': { top: '70%', left: '38%' },
+        '한국/글로벌': null,
+        '기타':        null,
+        '미국':        null,
+      };
+
+      const mapPins = document.getElementById('mapPins');
+      let activePin = null;
+
+      fetch("{% url 'regions:region_list_api' %}")
+        .then(r => r.json())
+        .then(data => {
+          data.regions.forEach(region => {
+            const pos = PIN_POSITIONS[region.name];
+            if (!pos) return;
+            const pin = document.createElement('div');
+            pin.className = 'map-pin';
+            pin.style.top = pos.top;
+            pin.style.left = pos.left;
+
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.textContent = region.name;
+            btn.dataset.region = region.name;
+            btn.addEventListener('click', () => {
+              if (activePin) activePin.classList.remove('active');
+              btn.classList.add('active');
+              activePin = btn;
+              loadRegion(region.name);
+            });
+
+            pin.appendChild(btn);
+            mapPins.appendChild(pin);
+          });
+        });
+
+      function loadRegion(regionName) {
+        document.getElementById('panelRegionName').textContent = regionName;
+        document.getElementById('panelCount').textContent = '';
+        document.getElementById('panelBody').innerHTML = '<p class="loading-text">기록 열람 중...</p>';
+
+        fetch(`{% url 'regions:city_list_api' %}?region=${encodeURIComponent(regionName)}`)
+          .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+          .then(data => renderCityTree(data))
+          .catch(err => {
+            document.getElementById('panelBody').innerHTML = `<p class="region-placeholder">오류: ${err}</p>`;
+          });
       }
 
-      mapViewport.addEventListener("pointerup", stopDragging);
-      mapViewport.addEventListener("pointercancel", stopDragging);
+      function renderCityTree(data) {
+        const body = document.getElementById('panelBody');
+        const cities = data.cities || [];
+        const stories = data.stories || [];
 
-      mapViewport.addEventListener("pointerleave", () => {
-        isDragging = false;
-        mapViewport.classList.remove("dragging");
+        // City 없고 스토리 직접 있으면 목록으로 표시
+        if (!cities.length && stories.length) {
+          document.getElementById('panelCount').textContent = `${stories.length}건`;
+          body.innerHTML = '';
+          stories.forEach(story => {
+            const item = document.createElement('div');
+            item.className = 'file-item';
+            item.innerHTML = `<span class="file-icon">📄</span><span class="file-name">${story.name || '제목 없음'}</span>`;
+            item.addEventListener('click', () => openStoryModal(story.id, story.name));
+            body.appendChild(item);
+          });
+          return;
+        }
+
+        if (!cities.length) {
+          document.getElementById('panelCount').textContent = '0건';
+          body.innerHTML = '<p class="region-placeholder">해당 지역의 기록이 없습니다.</p>';
+          return;
+        }
+
+        const total = cities.reduce((sum, c) => sum + (c.stories ? c.stories.length : 0), 0);
+        document.getElementById('panelCount').textContent = `${total}건`;
+        body.innerHTML = '';
+
+        cities.forEach(cityData => {
+          const folderEl = document.createElement('div');
+          folderEl.className = 'folder-item';
+
+          const header = document.createElement('div');
+          header.className = 'folder-header';
+          header.innerHTML = `
+            <span class="folder-arrow">▶</span>
+            <span class="folder-icon">📁</span>
+            <span class="folder-name">${cityData.city}</span>
+            <span class="folder-count">(${cityData.stories.length})</span>
+          `;
+
+          const children = document.createElement('div');
+          children.className = 'folder-children';
+
+          cityData.stories.forEach(story => {
+            const fileEl = document.createElement('div');
+            fileEl.className = 'file-item';
+            fileEl.innerHTML = `
+              <span class="file-icon">📄</span>
+              <span class="file-name">${story.name || '제목 없음'}</span>
+            `;
+            fileEl.addEventListener('click', () => openStoryModal(story.id, story.name));
+            children.appendChild(fileEl);
+          });
+
+          header.addEventListener('click', () => {
+            const arrow = header.querySelector('.folder-arrow');
+            const isOpen = children.classList.toggle('open');
+            arrow.classList.toggle('open', isOpen);
+            header.querySelector('.folder-icon').textContent = isOpen ? '📂' : '📁';
+          });
+
+          folderEl.append(header, children);
+          body.appendChild(folderEl);
+        });
+      }
+
+      function openStoryModal(storyId, storyName) {
+        document.getElementById('modalTitle').textContent = storyName || '제목 없음';
+        document.getElementById('modalMeta').textContent = '불러오는 중...';
+        document.getElementById('modalBody').textContent = '';
+        document.getElementById('storyModal').hidden = false;
+
+        fetch(`{% url 'regions:story_detail_api' %}?id=${encodeURIComponent(storyId)}`)
+          .then(r => r.json())
+          .then(data => {
+            document.getElementById('modalMeta').textContent = `[${data.type || 'STORY'}]`;
+            const body = data.body || '';
+            const isCorrupted = body.includes('@keyframes') || body.includes('{visibility:') || body.includes('border-radius:');
+            document.getElementById('modalBody').textContent = isCorrupted ? '(본문 데이터 오류 — 원본 소스 확인 필요)' : (body || '본문 없음');
+          });
+      }
+
+      document.getElementById('modalClose').addEventListener('click', () => {
+        document.getElementById('storyModal').hidden = true;
       });
-
-      applyMapTransform();
+      document.getElementById('storyModal').addEventListener('click', e => {
+        if (e.target === document.getElementById('storyModal'))
+          document.getElementById('storyModal').hidden = true;
+      });
     </script>
     <script src="{% static 'js/flicker.js' %}"></script>
   </body>

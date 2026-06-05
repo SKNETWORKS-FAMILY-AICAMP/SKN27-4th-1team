@@ -7,10 +7,7 @@ from .services import (
 
 
 def jidogam(request):
-    return render(request, 'regions/jidogam.html')
-
-def jidogam_preview(request):
-    return render(request, 'regions/jidogam_preview.html')
+    return render(request, 'regions/regioninfo.html')
 
 
 def region_list_api(request):
