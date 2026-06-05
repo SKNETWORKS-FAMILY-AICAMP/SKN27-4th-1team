@@ -252,7 +252,7 @@ horror_stories
 myth_entities
 superstitions
 generated_stories
-posts
+post_post
 generated_story_bookmarks
 post_bookmarks
 ```
@@ -301,11 +301,11 @@ generated_story_bookmarks  0
 horror_stories             224
 myth_entities              1016
 post_bookmarks             0
-posts                      0
+post_post                  0
 superstitions              214
 ```
 
-`generated_stories`, `posts`, `bookmarks` 계열 테이블이 0인 것은 정상이다. 이 데이터는 사용자가 화면에서 글을 작성하거나 보관함에 저장해야 생성된다.
+`generated_stories`, `post_post`, `bookmarks` 계열 테이블이 0인 것은 정상이다. 이 데이터는 사용자가 화면에서 글을 작성하거나 보관함에 저장해야 생성된다.
 
 ## 다음 단계
 
@@ -317,7 +317,7 @@ superstitions              214
 기록 열람실 -> horror_stories, myth_entities, superstitions 조회
 금기 자료실 -> superstitions 조회
 신규 기록실 -> generated_stories 생성
-열린 게시판 -> posts 생성/조회
+열린 게시판 -> post_post 생성/조회
 나의 보관함 -> generated_story_bookmarks, post_bookmarks 조회
 ```
 
@@ -333,7 +333,7 @@ superstitions              214
 | 기록 열람실에서 괴이 존재 조회 | `myth_entities` | JSON에서 적재한 신화/전설/괴이 존재 데이터 조회 |
 | 금기 자료실에서 미신/금기 문장 조회 | `superstitions` | `misin.json` 원문 문장 조회 |
 | 신규 기록실에서 AI 괴담 저장 | `generated_stories` | 사용자가 입력한 조건과 AI 생성 결과 저장 |
-| 열린 게시판에 글 작성 | `posts` | 목격담/창작담 게시글 저장 |
+| 열린 게시판에 글 작성 | `post_post` | 목격담/창작담 게시글 저장 |
 | AI 생성 괴담을 나의 보관함에 저장 | `generated_story_bookmarks` | 사용자와 생성 괴담의 저장 관계 저장 |
 | 열린 게시판 글을 나의 보관함에 저장 | `post_bookmarks` | 사용자와 게시글의 저장 관계 저장 |
 
@@ -428,7 +428,7 @@ title = 생성된 괴담 제목
 content = 생성된 괴담 본문
 ```
 
-### posts
+### post_post
 
 열린 게시판에 사용자가 작성한 글이 저장된다.
 
@@ -469,7 +469,7 @@ post_id = 저장한 게시글
 memo = 사용자 메모
 ```
 
-즉, 게시글 본문을 다시 복사해서 저장하는 테이블이 아니라, `posts`를 참조하는 연결 테이블이다.
+즉, 게시글 본문을 다시 복사해서 저장하는 테이블이 아니라, `post_post`를 참조하는 연결 테이블이다.
 
 ## Django 기본 관리 테이블
 
@@ -488,3 +488,48 @@ memo = 사용자 메모
 | `django_session` | 로그인 세션 |
 
 이 테이블들은 서비스 화면의 핵심 데이터라기보다는 Django 인증, 권한, 관리자, migration, 세션 관리를 위한 기본 테이블이다.
+# 현재 models.py 기준 테이블명 정리
+
+ERD와 PostgreSQL 문서는 현재 Django `models.py`와 기존 migration 흐름을 우선해서 정리한다.
+
+따라서 `Post`, `Like`, `Bookmark` 모델은 별도 `Meta.db_table`을 추가하지 않고 Django 기본 테이블명을 사용한다.
+
+| 모델 | 실제 테이블명 | 설명 |
+| --- | --- | --- |
+| `post.Post` | `post_post` | 열린 게시판 게시글 |
+| `post.Like` | `post_like` | 게시글 좋아요 기록 |
+| `accounts.Bookmark` | `accounts_bookmark` | 외부/Neo4j 괴담 자료 보관 기록 |
+| `generator.GeneratedStory` | `generated_stories` | AI 생성 괴담 |
+| `accounts.GeneratedStoryBookmark` | `generated_story_bookmarks` | AI 생성 괴담 보관 기록 |
+| `accounts.PostBookmark` | `post_bookmarks` | 게시글 보관 기록 |
+
+이 결정에 맞춰 다음 파일도 현재 테이블명 기준으로 수정했다.
+
+```text
+docs/ERD/postgresql_erd_plan.md
+docs/ERD/postgresql_erd_explanation.md
+database/PostgreSQL/schema.sql
+database/PostgreSQL/queries/count_check.sql
+database/PostgreSQL/queries/sample_select.sql
+database/PostgreSQL/import_json_data.py
+```
+
+현재 기준으로 카운트 확인 쿼리는 아래 테이블을 확인한다.
+
+```text
+horror_stories
+myth_entities
+superstitions
+generated_stories
+post_post
+post_like
+accounts_bookmark
+generated_story_bookmarks
+post_bookmarks
+```
+
+`import_json_data.py`는 원천 JSON 위치를 `database/data/`로 본다.
+
+```powershell
+python database/PostgreSQL/import_json_data.py
+```

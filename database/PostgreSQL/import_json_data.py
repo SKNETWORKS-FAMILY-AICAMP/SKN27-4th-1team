@@ -1,4 +1,4 @@
-"""Import docs JSON files into PostgreSQL through Django ORM.
+"""Import source JSON files into PostgreSQL through Django ORM.
 
 Run from the project root:
     python database/PostgreSQL/import_json_data.py
@@ -25,11 +25,11 @@ django.setup()
 from archive.models import HorrorStory, MythEntity, Superstition  # noqa: E402
 
 
-DOCS_DIR = PROJECT_ROOT / "docs"
+DATA_DIR = PROJECT_ROOT / "database" / "data"
 
 
 def load_json(filename: str) -> list[dict]:
-    path = DOCS_DIR / filename
+    path = DATA_DIR / filename
     with path.open(encoding="utf-8") as file:
         return json.load(file)
 

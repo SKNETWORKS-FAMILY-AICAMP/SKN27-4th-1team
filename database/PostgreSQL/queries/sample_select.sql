@@ -19,12 +19,24 @@ ORDER BY id
 LIMIT 20;
 
 -- 열린 게시판: 최신 게시글
-SELECT id, user_id, board_type, title, region, view_count, created_at
-FROM posts
+SELECT id, author_id, category, title, region, views, likes, created_at
+FROM post_post
 ORDER BY created_at DESC NULLS LAST, id DESC
 LIMIT 20;
 
--- 나의 보관함: 사용자가 저장한 생성 괴담
+-- 열린 게시판: 좋아요 기록
+SELECT id, user_id, post_id, created_at
+FROM post_like
+ORDER BY created_at DESC NULLS LAST, id DESC
+LIMIT 20;
+
+-- 나의 보관함: 외부/Neo4j 괴담 자료
+SELECT id, user_id, horror_id, horror_title, horror_type, created_at
+FROM accounts_bookmark
+ORDER BY created_at DESC NULLS LAST, id DESC
+LIMIT 20;
+
+-- 나의 보관함: 사용자가 저장한 AI 생성 괴담
 SELECT b.id AS bookmark_id, b.user_id, s.id AS story_id, s.title, b.created_at
 FROM generated_story_bookmarks b
 JOIN generated_stories s ON s.id = b.generated_story_id
@@ -34,6 +46,6 @@ ORDER BY b.created_at DESC NULLS LAST, b.id DESC;
 -- 나의 보관함: 사용자가 저장한 게시글
 SELECT b.id AS bookmark_id, b.user_id, p.id AS post_id, p.title, b.created_at
 FROM post_bookmarks b
-JOIN posts p ON p.id = b.post_id
+JOIN post_post p ON p.id = b.post_id
 WHERE b.user_id = 1
 ORDER BY b.created_at DESC NULLS LAST, b.id DESC;
