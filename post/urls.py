@@ -5,6 +5,10 @@ app_name = 'post'
 
 urlpatterns = [
     path('witness/', views.mokgyeokgirok_view, name='witness_board'),
+    path('mokgyeokgirok/', views.mokgyeokgirok_view, name='mokgyeokgirok'),
+    path('mokgyeokgirok.html', views.mokgyeokgirok_view, name='mokgyeokgirok_html'),
+    path('update/<int:post_id>/', views.post_edit_api, name='update'),
+    path('delete/<int:post_id>/', views.post_delete_api, name='delete'),
     path('api/create/', views.post_create_api, name='post_create_api'),
     path('api/list/', views.post_list_api, name='post_list_api'),
     path('api/detail/<int:post_id>/', views.post_detail_api, name='post_detail_api'),
