@@ -1,4 +1,10 @@
 (function () {
+  if (window.__goeiFlickerStarted) {
+    return;
+  }
+
+  window.__goeiFlickerStarted = true;
+
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
     return;
   }
