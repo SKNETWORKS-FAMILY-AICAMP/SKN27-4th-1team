@@ -38,22 +38,22 @@ SKN27-4th-1team/
 |   |
 |   |-- accounts/            # 로그인, 회원가입, 나의 기록
 |   |   |-- login.html
-|   |   |-- signup.html
-|   |   `-- mygirok.html
+|   |   |-- register.html
+|   |   `-- mypage.html
 |   |
-|   |-- archive/             # 메인, 실록관, 금기록
+|   |-- archive/             # 메인, 기록 열람실, 금기 자료실
 |   |   |-- index.html
-|   |   |-- sillokgwan.html
-|   |   `-- geumgirok.html
+|   |   |-- chatbot.html
+|   |   `-- archive.html
 |   |
-|   |-- generator/           # 괴이제조소
-|   |   `-- goeijejoso.html
+|   |-- generator/           # 신규 기록실
+|   |   `-- storymaker.html
 |   |
-|   |-- post/                # 목격기록
-|   |   `-- mokgyeokgirok.html
+|   |-- post/                # 열린 게시판
+|   |   `-- community.html
 |   |
-|   `-- regions/             # 지역도감
-|       `-- jidogam.html
+|   `-- regions/             # 지역 정보실
+|       `-- regioninfo.html
 |
 |-- static/                  # 전체 공통 정적 파일
 |   |-- css/
@@ -61,8 +61,19 @@ SKN27-4th-1team/
 |   |-- js/
 |   |   `-- flicker.js
 |   |-- images/
+|   |   |-- dark-room.png
+|   |   |-- goei_map_thin_red.png
+|   |   |-- jumpscare.avif
+|   |   |-- jumpscare.jpeg
+|   |   `-- red-room.png
 |   |-- fonts/
+|   |   `-- DungGeunMo.ttf
 |   `-- audio/
+|       |-- closedoor.mp3
+|       |-- horror-loop.wav
+|       |-- jumpscare-sting.wav
+|       |-- opendoor.mp3
+|       `-- switch-sound.m4a
 |
 |-- accounts/                # 회원가입, 로그인, 로그아웃, 마이페이지 기본 정보
 |   |-- admin.py
@@ -122,6 +133,7 @@ SKN27-4th-1team/
 |       `-- __init__.py
 |
 `-- docs/
+    |-- requirements-definition.csv
     |-- wbs.csv
     `-- service-planning.md
 ```

@@ -3,13 +3,19 @@ from django.http import JsonResponse
 from .graph import search_graph
 
 
-def sillokgwan_view(request):
-    """Renders the main sillokgwan template."""
+def index(request):
+    return render(request, 'archive/index.html')
+
+
+def sillokgwan(request):
     return render(request, 'archive/sillokgwan.html')
 
 
+def sillokgwan_view(request):
+    return sillokgwan(request)
+
+
 def sillok_search_api(request):
-    """API endpoint: runs LangGraph search pipeline and returns JSON."""
     query = request.GET.get('q', '').strip()
     if not query:
         return JsonResponse({'status': 'empty', 'results': []})
@@ -39,13 +45,11 @@ def sillok_search_api(request):
         except Exception:
             certain_results = []
 
-    # Update conversation history (keep last 10 messages = 5 exchanges)
     conversation_history.append({"role": "user", "content": query})
     conversation_history.append({"role": "assistant", "content": llm_response})
     request.session['conversation_history'] = conversation_history[-10:]
     request.session.modified = True
 
-    # Store for inline detail view (digit selection)
     request.session['last_search_results'] = [
         {'name': r['name'], 'body': r['body'], 'regions': r['regions'], 'type': r['type']}
         for r in certain_results
@@ -57,3 +61,7 @@ def sillok_search_api(request):
         'results': certain_results,
         'llm_response': llm_response
     })
+
+
+def geumgirok(request):
+    return render(request, 'archive/geumgirok.html')

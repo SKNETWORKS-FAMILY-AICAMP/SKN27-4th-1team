@@ -1,0 +1,260 @@
+{% load static %}
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>괴이 실록 - 나의 보관함</title>
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+  </head>
+  <body class="bbs-page">
+    <main class="bbs-screen">
+      <header class="bbs-topbar">
+        <span>archive://goei.sillok/my</span>
+        <span>나의 보관함</span>
+        <a class="bbs-login" href="{% url 'accounts:login' %}">LOGIN</a>
+      </header>
+
+      <nav class="bbs-nav" aria-label="괴이실록 페이지">
+        <a href="{% url 'archive:sillokgwan' %}">[ 1. 기록 열람실 ]</a>
+        <a href="{% url 'archive:geumgirok' %}">[ 2. 금기 자료실 ]</a>
+        <a href="{% url 'generator:goeijejoso' %}">[ 3. 신규 기록실 ]</a>
+        <a href="{% url 'post:mokgyeokgirok' %}">[ 4. 열린 게시판 ]</a>
+        <a href="{% url 'regions:jidogam' %}">[ 5. 지역 정보실 ]</a>
+        <a href="{% url 'accounts:mypage' %}">[ 6. 나의 보관함 ]</a>
+      </nav>
+
+      <section class="my-record-shell" aria-label="나의 보관함">
+        <header class="my-record-header">
+          <h1>나의 보관함</h1>
+          <p>로그인한 사용자의 신규 기록실 생성 기록과 열린 게시판 작성글을 조회합니다.</p>
+        </header>
+
+        <div class="my-record-tabs" role="tablist" aria-label="나의 보관함 종류">
+          <button id="factoryTab" class="my-record-tab active" type="button" role="tab" aria-selected="true" aria-controls="factoryRecords">창작담 기록</button>
+          <button id="witnessTab" class="my-record-tab" type="button" role="tab" aria-selected="false" aria-controls="witnessRecords">목격담 기록</button>
+        </div>
+
+        <div class="my-record-panels">
+          <section class="my-record-panel factory-record-list active" id="factoryRecords" role="tabpanel" aria-labelledby="factoryTab">
+            <button
+              class="my-record-card factory-record-card"
+              type="button"
+              data-title="폐교 음악실에서 들리는 세 번째 이름"
+              data-meta="신규 기록실 / DRAFT / 충청북도 괴산 / 금기 위반"
+              data-body="지역은 충청북도 괴산, 장소는 폐교 3층 음악실. 금기는 이름을 세 번 부르지 말 것. 새벽 2시 17분에 피아노 건반 하나가 먼저 눌리고, 세 번째 이름을 듣는 순간 복도 끝 문이 안쪽에서 잠깁니다."
+              data-edit-url="{% url 'generator:storymaker' %}"
+              data-delete-url="#"
+              data-delete-pending="true"
+            >
+              <span class="record-status">DRAFT</span>
+              <span class="factory-record-title">폐교 음악실에서 들리는 세 번째 이름</span>
+              <span>충청북도 괴산</span>
+              <span>금기 위반</span>
+              <span>2026-06-02</span>
+            </button>
+            <button
+              class="my-record-card factory-record-card"
+              type="button"
+              data-title="비 오는 날 거울 복도에 남는 발자국"
+              data-meta="신규 기록실 / SAVED / 부산 영도구 / 반복 현상"
+              data-body="비 오는 날, 오래된 병원 복도 끝 거울을 30초 이상 보면 젖은 발자국이 화면 밖에서부터 생겨납니다. 발자국은 항상 사용자의 뒤편에서 멈추며, 결말은 아직 저장되지 않았습니다."
+              data-edit-url="{% url 'generator:storymaker' %}"
+              data-delete-url="#"
+              data-delete-pending="true"
+            >
+              <span class="record-status">SAVED</span>
+              <span class="factory-record-title">비 오는 날 거울 복도에 남는 발자국</span>
+              <span>부산 영도구</span>
+              <span>반복 현상</span>
+              <span>2026-06-01</span>
+            </button>
+          </section>
+
+          <section class="my-record-panel witness-record-list" id="witnessRecords" role="tabpanel" aria-labelledby="witnessTab" hidden>
+            <button
+              class="my-record-card witness-record-card"
+              type="button"
+              data-title="엘리베이터에 없는 지하 4층"
+              data-meta="열린 게시판 / POSTED / 경기 수원 / 조회 128 / 댓글 3"
+              data-body="버튼에는 없는데 표시창에만 B4가 뜹니다. 문이 열리면 늘 같은 안내문이 붙어 있습니다. '돌아가지 마시오.' 제보자는 그 뒤로 엘리베이터를 타지 않는다고 했습니다."
+              data-edit-url="{% url 'post:update' post_id=1 %}"
+              data-delete-url="{% url 'post:delete' post_id=1 %}"
+            >
+              <span class="record-status">POSTED</span>
+              <h2>엘리베이터에 없는 지하 4층</h2>
+              <p>지역: 경기 수원 / 조회 128 / 댓글 3</p>
+            </button>
+            <button
+              class="my-record-card witness-record-card"
+              type="button"
+              data-title="터널 중간에서 라디오가 잡은 이름"
+              data-meta="열린 게시판 / PRIVATE / 강원 인제 / 비공개 기록"
+              data-body="터널 안에서는 모든 주파수가 끊기는데, 03:12에만 낯선 안내 방송이 나옵니다. 마지막에 제보자의 이름을 불렀고, 동승자는 아무것도 듣지 못했다고 기록했습니다."
+              data-edit-url="{% url 'post:update' post_id=2 %}"
+              data-delete-url="{% url 'post:delete' post_id=2 %}"
+            >
+              <span class="record-status">PRIVATE</span>
+              <h2>터널 중간에서 라디오가 잡은 이름</h2>
+              <p>지역: 강원 인제 / 비공개 기록</p>
+            </button>
+          </section>
+        </div>
+
+      </section>
+    </main>
+    <script>
+      const tabs = document.querySelectorAll(".my-record-tab");
+      const panels = document.querySelectorAll(".my-record-panel");
+      const cards = document.querySelectorAll(".my-record-card");
+
+      tabs.forEach((tab) => {
+        tab.addEventListener("click", () => {
+          tabs.forEach((item) => {
+            item.classList.toggle("active", item === tab);
+            item.setAttribute("aria-selected", String(item === tab));
+          });
+
+          panels.forEach((panel) => {
+            const isActive = panel.id === tab.getAttribute("aria-controls");
+            panel.classList.toggle("active", isActive);
+            panel.hidden = !isActive;
+          });
+
+          cards.forEach((item) => item.classList.remove("selected"));
+          document.querySelectorAll(".inline-record-detail").forEach((detail) => detail.remove());
+        });
+      });
+
+      cards.forEach((card) => {
+        card.addEventListener("click", () => {
+          const isSelected = card.classList.contains("selected");
+
+          cards.forEach((item) => item.classList.remove("selected"));
+          document.querySelectorAll(".inline-record-detail").forEach((detail) => detail.remove());
+
+          if (isSelected) {
+            return;
+          }
+
+          const detail = document.createElement("div");
+          const meta = document.createElement("p");
+          const body = document.createElement("p");
+
+          card.classList.add("selected");
+          detail.className = "inline-record-detail";
+          meta.className = "detail-meta";
+          meta.textContent = card.dataset.meta;
+          body.className = "detail-body";
+          body.textContent = card.dataset.body;
+
+          detail.append(meta, body);
+
+          if (card.dataset.editUrl && card.dataset.deleteUrl) {
+            const actions = document.createElement("div");
+            const editForm = document.createElement("form");
+            const editButton = document.createElement("button");
+            const deleteForm = document.createElement("form");
+            const deleteButton = document.createElement("button");
+
+            actions.className = "record-actions";
+            editForm.className = "record-action-form";
+            editButton.className = "record-action-button edit-action";
+            editButton.type = "button";
+            editButton.textContent = "수정";
+            editButton.addEventListener("click", () => {
+              if (detail.querySelector(".inline-edit-form")) {
+                return;
+              }
+
+              const editPanel = document.createElement("form");
+              const titleLabel = document.createElement("label");
+              const titleText = document.createElement("span");
+              const titleInput = document.createElement("input");
+              const bodyLabel = document.createElement("label");
+              const bodyText = document.createElement("span");
+              const bodyInput = document.createElement("textarea");
+              const editControls = document.createElement("div");
+              const saveButton = document.createElement("button");
+              const cancelButton = document.createElement("button");
+
+              editPanel.className = "inline-edit-form";
+              titleText.textContent = "제목";
+              titleInput.type = "text";
+              titleInput.value = card.dataset.title ?? "";
+              bodyText.textContent = "내용";
+              bodyInput.rows = 5;
+              bodyInput.value = card.dataset.body ?? "";
+              editControls.className = "inline-edit-actions";
+              saveButton.className = "record-action-button save-action";
+              saveButton.type = "submit";
+              saveButton.textContent = "저장";
+              cancelButton.className = "record-action-button";
+              cancelButton.type = "button";
+              cancelButton.textContent = "취소";
+
+              titleLabel.append(titleText, titleInput);
+              bodyLabel.append(bodyText, bodyInput);
+              editControls.append(saveButton, cancelButton);
+              editPanel.append(titleLabel, bodyLabel, editControls);
+
+              editPanel.addEventListener("submit", (event) => {
+                event.preventDefault();
+                const nextTitle = titleInput.value.trim();
+                const nextBody = bodyInput.value.trim();
+
+                if (!nextTitle || !nextBody) {
+                  window.alert("제목과 내용을 모두 입력해 주세요.");
+                  return;
+                }
+
+                card.dataset.title = nextTitle;
+                card.dataset.body = nextBody;
+                body.textContent = nextBody;
+
+                const titleNode = card.querySelector(".factory-record-title, h2");
+                if (titleNode) {
+                  titleNode.textContent = nextTitle;
+                }
+
+                editPanel.remove();
+              });
+
+              cancelButton.addEventListener("click", () => {
+                editPanel.remove();
+              });
+
+              detail.insertBefore(editPanel, actions);
+              titleInput.focus();
+            });
+            deleteForm.className = "record-delete-form";
+            deleteForm.action = card.dataset.deleteUrl;
+            deleteForm.method = "post";
+            deleteButton.className = "record-action-button delete-action";
+            deleteButton.type = "submit";
+            deleteButton.textContent = "삭제";
+            deleteForm.addEventListener("submit", (event) => {
+              if (!window.confirm("이 기록을 삭제하시겠습니까?")) {
+                event.preventDefault();
+                return;
+              }
+
+              if (card.dataset.deletePending === "true") {
+                event.preventDefault();
+                window.alert("창작담 삭제 기능은 추후 생성 기록 저장 기능과 연결됩니다.");
+              }
+            });
+            editForm.append(editButton);
+            deleteForm.append(deleteButton);
+
+            actions.append(editForm, deleteForm);
+            detail.append(actions);
+          }
+
+          card.insertAdjacentElement("afterend", detail);
+        });
+      });
+    </script>
+    <script src="{% static 'js/flicker.js' %}"></script>
+  </body>
+</html>

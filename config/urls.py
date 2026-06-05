@@ -16,15 +16,16 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import include, path
-from django.views.generic import TemplateView
+
+from archive import views as archive_views
 
 urlpatterns = [
-    path('', TemplateView.as_view(template_name='archive/index.html'), name='home'),
+    path('', archive_views.index, name='home'),
     path('admin/', admin.site.urls),
 
-    path('accounts/', include('accounts.urls')),    # login, signup, mypage
-    path('archive/', include('archive.urls')),      # sillokgwan, geumgirok
-    path('generator/', include('generator.urls')),  # goeijejoso
-    path('post/', include('post.urls')),            # mokgyeokgirok
-    path('regions/', include('regions.urls')),      # jidogam
+    path('accounts/', include('accounts.urls')),    # login, register, mypage
+    path('archive/', include('archive.urls')),      # index, chatbot, archive
+    path('generator/', include('generator.urls')),  # storymaker
+    path('post/', include('post.urls')),            # community
+    path('regions/', include('regions.urls')),      # regioninfo
 ]
