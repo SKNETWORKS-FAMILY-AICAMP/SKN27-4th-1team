@@ -73,17 +73,34 @@ CREATE TABLE generated_stories (
     updated_at TIMESTAMPTZ
 );
 
-CREATE TABLE posts (
+CREATE TABLE post_post (
+    id BIGSERIAL PRIMARY KEY,
+    author_id BIGINT REFERENCES auth_user(id),
+    category VARCHAR(15) NOT NULL DEFAULT 'WITNESS',
+    title VARCHAR(200) NOT NULL,
+    region VARCHAR(100) DEFAULT '지역 미상',
+    body TEXT NOT NULL,
+    views INTEGER DEFAULT 0,
+    likes INTEGER DEFAULT 0,
+    created_at TIMESTAMPTZ
+);
+
+CREATE TABLE post_like (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL REFERENCES auth_user(id),
-    board_type VARCHAR(30),
-    title TEXT NOT NULL,
-    region VARCHAR(100),
-    content TEXT NOT NULL,
-    view_count INTEGER DEFAULT 0,
-    visibility VARCHAR(30),
+    post_id BIGINT NOT NULL REFERENCES post_post(id),
     created_at TIMESTAMPTZ,
-    updated_at TIMESTAMPTZ
+    UNIQUE (user_id, post_id)
+);
+
+CREATE TABLE accounts_bookmark (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES auth_user(id),
+    horror_id VARCHAR(100) NOT NULL,
+    horror_title VARCHAR(255) NOT NULL,
+    horror_type VARCHAR(50) DEFAULT 'Story',
+    created_at TIMESTAMPTZ,
+    UNIQUE (user_id, horror_id)
 );
 
 CREATE TABLE generated_story_bookmarks (
@@ -98,7 +115,7 @@ CREATE TABLE generated_story_bookmarks (
 CREATE TABLE post_bookmarks (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL REFERENCES auth_user(id),
-    post_id BIGINT NOT NULL REFERENCES posts(id),
+    post_id BIGINT NOT NULL REFERENCES post_post(id),
     memo TEXT,
     created_at TIMESTAMPTZ,
     UNIQUE (user_id, post_id)
