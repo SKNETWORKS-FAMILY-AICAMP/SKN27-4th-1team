@@ -431,6 +431,23 @@ body.bbs-page.page-flicker::after {
   animation: page-flicker 150ms steps(2, end) both;
 }
 
+.flicker-face {
+  position: fixed;
+  inset: 0;
+  z-index: 12;
+  pointer-events: none;
+  opacity: 0;
+  background:
+    radial-gradient(circle at 50% 50%, transparent 0 28%, rgba(0, 0, 0, 0.62) 68%),
+    url("../images/flicker-ghost.png") var(--flicker-face-x, 50%) var(--flicker-face-y, 50%) / contain no-repeat;
+  filter: contrast(1.25) saturate(0.85);
+  mix-blend-mode: screen;
+}
+
+body.page-flicker .flicker-face {
+  animation: face-flicker 150ms steps(2, end) both;
+}
+
 .bbs-screen {
   display: grid;
   gap: 12px;
@@ -906,6 +923,33 @@ body.bbs-page.page-flicker::after {
   100% {
     opacity: 0;
     transform: translateX(0);
+  }
+}
+
+@keyframes face-flicker {
+  0% {
+    opacity: 0;
+    transform: translateX(0) scale(1);
+  }
+
+  18% {
+    opacity: 0.2;
+    transform: translateX(2px) scale(1.01);
+  }
+
+  46% {
+    opacity: 0.14;
+    transform: translateX(-2px) scale(1.015);
+  }
+
+  72% {
+    opacity: 0.2;
+    transform: translateX(1px) scale(1.01);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(0) scale(1);
   }
 }
 
@@ -1482,7 +1526,7 @@ body.bbs-page.page-flicker::after {
   background: #030000;
 }
 
-.factory-record-card.selected .inline-record-detail {
+.factory-record-card.selected + .inline-record-detail {
   grid-column: 1 / -1;
 }
 
@@ -1548,4 +1592,94 @@ body.bbs-page.page-flicker::after {
 .detail-body {
   color: #ff4b4b;
   line-height: 1.55;
+}
+
+.inline-edit-form {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid rgba(255, 48, 48, 0.34);
+  background: rgba(8, 0, 0, 0.76);
+}
+
+.inline-edit-form label {
+  display: grid;
+  gap: 5px;
+  color: rgba(255, 214, 214, 0.84);
+}
+
+.inline-edit-form input,
+.inline-edit-form textarea {
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid #7a0000;
+  color: #ffd6d6;
+  font: inherit;
+  background: #050000;
+}
+
+.inline-edit-form textarea {
+  resize: vertical;
+}
+
+.inline-edit-form input:focus,
+.inline-edit-form textarea:focus {
+  border-color: #ff3030;
+  outline: none;
+  box-shadow: 0 0 14px rgba(255, 48, 48, 0.28);
+}
+
+.inline-edit-actions {
+  display: grid;
+  grid-template-columns: repeat(2, 72px);
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.record-actions {
+  display: grid;
+  grid-template-columns: repeat(2, 72px);
+  gap: 8px;
+  justify-content: flex-end;
+  align-items: center;
+  padding-top: 4px;
+}
+
+.record-action-form,
+.record-delete-form {
+  display: block;
+  margin: 0;
+}
+
+.record-action-button {
+  width: 72px;
+  padding: 7px 12px;
+  border: 1px solid #7a0000;
+  color: #ffd6d6;
+  font: inherit;
+  text-align: center;
+  background: #140000;
+  cursor: pointer;
+}
+
+.record-action-button:hover,
+.record-action-button:focus-visible {
+  border-color: #ff3030;
+  color: #ffffff;
+  outline: none;
+  box-shadow: 0 0 14px rgba(255, 48, 48, 0.35);
+}
+
+.edit-action {
+  border-style: dashed;
+}
+
+.delete-action {
+  border-color: #ff3030;
+  color: #050000;
+  background: #ff3030;
+}
+
+.save-action {
+  border-color: #ff3030;
 }
