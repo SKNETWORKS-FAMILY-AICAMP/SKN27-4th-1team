@@ -55,10 +55,8 @@
                 data-body="{{ story.content|default:'생성 내용이 없습니다.' }}"
               >
                 <span class="record-status">{{ story.status|default:"DRAFT"|upper }}</span>
-                <span class="factory-record-title">{{ story.title|default:"제목 없는 창작담" }}</span>
-                <span>{{ story.region|default:"지역 미상" }}</span>
-                <span>{{ story.entity_type|default:"괴이" }}</span>
-                <span>{{ story.created_at|date:"Y-m-d" }}</span>
+                <h2>{{ story.title|default:"제목 없는 창작담" }}</h2>
+                <p>{{ story.region|default:"지역 미상" }} / {{ story.created_at|date:"Y-m-d" }}</p>
               </button>
             {% endfor %}
 
@@ -71,10 +69,8 @@
                 data-body="{{ bm.generated_story.content|default:'보관된 생성 기록입니다.' }}"
               >
                 <span class="record-status">SAVED</span>
-                <span class="factory-record-title">{{ bm.generated_story.title|default:"저장한 창작담" }}</span>
-                <span>{{ bm.generated_story.region|default:"지역 미상" }}</span>
-                <span>{{ bm.generated_story.entity_type|default:"괴이" }}</span>
-                <span>{{ bm.created_at|date:"Y-m-d" }}</span>
+                <h2>{{ bm.generated_story.title|default:"저장한 창작담" }}</h2>
+                <p>{{ bm.generated_story.region|default:"지역 미상" }} / {{ bm.created_at|date:"Y-m-d" }}</p>
               </button>
             {% endfor %}
 
@@ -87,10 +83,8 @@
                 data-body="{{ bm.post.body }}"
               >
                 <span class="record-status">SAVED</span>
-                <span class="factory-record-title">{{ bm.post.title }}</span>
-                <span>{{ bm.post.region|default:"지역 미상" }}</span>
-                <span>창작담</span>
-                <span>{{ bm.created_at|date:"Y-m-d" }}</span>
+                <h2>{{ bm.post.title }}</h2>
+                <p>{{ bm.post.region|default:"지역 미상" }} / {{ bm.created_at|date:"Y-m-d" }}</p>
               </button>
             {% endfor %}
 
@@ -107,10 +101,8 @@
                 data-body="{{ post.body }}"
               >
                 <span class="record-status">POSTED</span>
-                <span class="factory-record-title" data-record-title>{{ post.title }}</span>
-                <span data-record-region>{{ post.region|default:"지역 미상" }}</span>
-                <span>창작담</span>
-                <span>{{ post.created_at|date:"Y-m-d" }}</span>
+                <h2 data-record-title>{{ post.title }}</h2>
+                <p><span data-record-region>{{ post.region|default:"지역 미상" }}</span> / {{ post.created_at|date:"Y-m-d" }}</p>
               </div>
             {% endfor %}
 
@@ -123,9 +115,8 @@
                 data-body="{{ bm.horror_title }} 기록이 보관함에 저장되었습니다."
               >
                 <span class="record-status">SAVED</span>
-                <span class="factory-record-title">{{ bm.horror_title }}</span>
-                <span>{{ bm.horror_type }}</span>
-                <span>{{ bm.created_at|date:'Y-m-d' }}</span>
+                <h2>{{ bm.horror_title }}</h2>
+                <p>{{ bm.horror_type }} / {{ bm.created_at|date:'Y-m-d' }}</p>
               </button>
             {% endfor %}
 
@@ -317,6 +308,7 @@
         } else {
           card.append(form);
         }
+        form.scrollIntoView({ block: "nearest" });
       }
 
       function appendOwnerActions(card, detail) {
@@ -380,7 +372,11 @@
       });
 
       cards.forEach((card) => {
-        card.addEventListener("click", () => {
+        card.addEventListener("click", (event) => {
+          if (event.target.closest("form, button, input, textarea")) {
+            return;
+          }
+
           const isSelected = card.classList.contains("selected");
 
           cards.forEach((item) => item.classList.remove("selected"));
@@ -408,6 +404,9 @@
 
         card.addEventListener("keydown", (event) => {
           if (card.tagName !== "DIV") {
+            return;
+          }
+          if (event.target.closest("form, button, input, textarea")) {
             return;
           }
           if (event.key === "Enter" || event.key === " ") {

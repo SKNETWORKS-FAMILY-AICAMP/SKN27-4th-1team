@@ -1621,6 +1621,8 @@ body.bbs-factory-page {
 .my-record-card {
   display: grid;
   gap: 7px;
+  width: 100%;
+  box-sizing: border-box;
   padding: 12px;
   border: 1px solid #7a0000;
   color: inherit;
@@ -1631,37 +1633,17 @@ body.bbs-factory-page {
 }
 
 .factory-record-list {
-  gap: 0;
+  gap: 10px;
 }
 
 .factory-record-card {
-  grid-template-columns: 86px minmax(180px, 1.3fr) minmax(110px, 0.8fr) minmax(100px, 0.7fr) 112px;
-  align-items: center;
-  gap: 10px;
-  border-width: 0 0 1px;
-  border-left: 0;
-  padding: 10px 8px;
-  background: #030000;
-}
-
-.factory-record-card.selected + .inline-record-detail {
-  grid-column: 1 / -1;
-}
-
-.factory-record-card:first-of-type {
-  border-top: 1px solid #7a0000;
-}
-
-.factory-record-title {
-  color: #f2f2f2;
+  gap: 7px;
+  background: rgba(10, 0, 0, 0.86);
 }
 
 .witness-record-card {
   gap: 7px;
-  border-left: 6px double #ff00a8;
-  background:
-    linear-gradient(90deg, rgba(255, 0, 168, 0.08), transparent 38%),
-    rgba(10, 0, 0, 0.86);
+  background: rgba(10, 0, 0, 0.86);
 }
 
 .my-record-card:hover,
@@ -1697,6 +1679,8 @@ body.bbs-factory-page {
 .inline-record-detail {
   display: grid;
   gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
   margin-top: 8px;
   padding: 10px;
   border-top: 1px solid #7a0000;
@@ -1715,6 +1699,8 @@ body.bbs-factory-page {
 .inline-edit-form {
   display: grid;
   gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
   padding: 10px;
   border: 1px solid rgba(255, 48, 48, 0.34);
   background: rgba(8, 0, 0, 0.76);
@@ -1729,6 +1715,7 @@ body.bbs-factory-page {
 .inline-edit-form input,
 .inline-edit-form textarea {
   width: 100%;
+  box-sizing: border-box;
   padding: 9px 10px;
   border: 1px solid #7a0000;
   color: #ffd6d6;
@@ -1737,6 +1724,8 @@ body.bbs-factory-page {
 }
 
 .inline-edit-form textarea {
+  min-height: 112px;
+  max-height: 180px;
   resize: vertical;
 }
 
@@ -1752,6 +1741,8 @@ body.bbs-factory-page {
   grid-template-columns: repeat(2, 72px);
   gap: 8px;
   justify-content: flex-end;
+  padding-top: 4px;
+  background: rgba(8, 0, 0, 0.92);
 }
 
 .record-actions {
