@@ -1,3 +1,4 @@
 from django.shortcuts import render
 
-# Create your views here.
+def mokgyeokgirok(request):
+    return render(request, 'post/community.html')
