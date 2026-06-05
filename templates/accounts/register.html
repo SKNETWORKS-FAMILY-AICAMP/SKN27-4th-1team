@@ -11,14 +11,19 @@
     <main class="login-screen" aria-label="가입">
       <p id="signupPrompt" class="login-prompt" aria-live="polite"></p>
 
-      <form class="login-form">
+      <form class="login-form" action="{% url 'accounts:signup' %}" method="post">
+        {% csrf_token %}
         <label>
           <span>ID</span>
-          <input type="text" name="userId" autocomplete="username" />
+          <input type="text" name="username" autocomplete="username" />
         </label>
         <label>
           <span>PW</span>
           <input type="password" name="password" autocomplete="new-password" />
+        </label>
+        <label>
+          <span>PW2</span>
+          <input type="password" name="password_confirm" autocomplete="new-password" />
         </label>
         <label>
           <span>EMAIL</span>
@@ -46,6 +51,14 @@
       }
 
       window.setTimeout(typeNextLetter, 420);
+
+      document.querySelector(".login-form").addEventListener("submit", () => {
+        const csrfInput = document.querySelector('[name="csrfmiddlewaretoken"]');
+        const csrfCookie = document.cookie.split("; ").find((item) => item.startsWith("csrftoken="));
+        if (csrfInput && csrfCookie) {
+          csrfInput.value = decodeURIComponent(csrfCookie.split("=")[1]);
+        }
+      });
     </script>
     <script src="{% static 'js/flicker.js' %}"></script>
   </body>

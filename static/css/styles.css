@@ -491,6 +491,18 @@ body.page-flicker .flicker-face {
   overflow: hidden;
 }
 
+body.bbs-factory-page {
+  height: 100vh;
+  overflow: hidden;
+}
+
+.bbs-factory-page .bbs-screen {
+  grid-template-rows: auto auto minmax(0, 1fr);
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .bbs-topbar {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
@@ -1150,6 +1162,12 @@ body.page-flicker .flicker-face {
   min-height: 64vh;
 }
 
+.bbs-factory-page .factory-shell {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .factory-form,
 .factory-output {
   display: grid;
@@ -1158,6 +1176,35 @@ body.page-flicker .flicker-face {
   padding: 14px;
   border: 1px solid #7a0000;
   background: rgba(0, 0, 0, 0.78);
+}
+
+.bbs-factory-page .factory-form,
+.bbs-factory-page .factory-output {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.bbs-factory-page .factory-form {
+  gap: 8px;
+  padding: 12px;
+}
+
+.bbs-factory-page .factory-output {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.factory-output-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+  border-bottom: 1px solid #7a0000;
+  padding-bottom: 8px;
+}
+
+.factory-output-header .factory-section-title {
+  border-bottom: 0;
+  padding-bottom: 0;
 }
 
 .factory-section-title {
@@ -1186,8 +1233,20 @@ body.page-flicker .flicker-face {
   outline: none;
 }
 
+.bbs-factory-page .factory-form input,
+.bbs-factory-page .factory-form select {
+  height: 34px;
+  padding-block: 6px;
+}
+
 .factory-form textarea {
   resize: vertical;
+}
+
+.bbs-factory-page .factory-form textarea {
+  height: 52px;
+  min-height: 0;
+  resize: none;
 }
 
 .factory-form input:focus,
@@ -1206,6 +1265,36 @@ body.page-flicker .flicker-face {
   cursor: pointer;
 }
 
+.factory-post-button {
+  min-width: 112px;
+  height: 34px;
+  border: 1px solid #ff3030;
+  border-radius: 0;
+  color: #050000;
+  font: inherit;
+  font-size: 14px;
+  background: #ff3030;
+  cursor: pointer;
+}
+
+.factory-post-button:hover,
+.factory-post-button:focus-visible {
+  color: #ff3030;
+  background: #070000;
+  outline: none;
+}
+
+.factory-post-button:disabled {
+  border-color: #5f0000;
+  color: rgba(255, 48, 48, 0.42);
+  background: #080000;
+  cursor: not-allowed;
+}
+
+.bbs-factory-page .factory-form button {
+  height: 38px;
+}
+
 .factory-form button:hover,
 .factory-form button:focus-visible {
   color: #ff3030;
@@ -1215,10 +1304,31 @@ body.page-flicker .flicker-face {
 
 .factory-story {
   display: grid;
+  align-content: start;
   gap: 10px;
   color: #ff4b4b;
   font-size: clamp(15px, 2vw, 20px);
   line-height: 1.55;
+}
+
+.bbs-factory-page .factory-story {
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 8px;
+  overscroll-behavior: contain;
+}
+
+.bbs-factory-page .factory-story::-webkit-scrollbar {
+  width: 12px;
+}
+
+.bbs-factory-page .factory-story::-webkit-scrollbar-track {
+  background: #050000;
+  border: 1px solid #7a0000;
+}
+
+.bbs-factory-page .factory-story::-webkit-scrollbar-thumb {
+  background: #ff3030;
 }
 
 .factory-story p {
@@ -1511,6 +1621,8 @@ body.page-flicker .flicker-face {
 .my-record-card {
   display: grid;
   gap: 7px;
+  width: 100%;
+  box-sizing: border-box;
   padding: 12px;
   border: 1px solid #7a0000;
   color: inherit;
@@ -1521,37 +1633,17 @@ body.page-flicker .flicker-face {
 }
 
 .factory-record-list {
-  gap: 0;
+  gap: 10px;
 }
 
 .factory-record-card {
-  grid-template-columns: 86px minmax(180px, 1.3fr) minmax(110px, 0.8fr) minmax(100px, 0.7fr) 112px;
-  align-items: center;
-  gap: 10px;
-  border-width: 0 0 1px;
-  border-left: 0;
-  padding: 10px 8px;
-  background: #030000;
-}
-
-.factory-record-card.selected + .inline-record-detail {
-  grid-column: 1 / -1;
-}
-
-.factory-record-card:first-of-type {
-  border-top: 1px solid #7a0000;
-}
-
-.factory-record-title {
-  color: #f2f2f2;
+  gap: 7px;
+  background: rgba(10, 0, 0, 0.86);
 }
 
 .witness-record-card {
   gap: 7px;
-  border-left: 6px double #ff00a8;
-  background:
-    linear-gradient(90deg, rgba(255, 0, 168, 0.08), transparent 38%),
-    rgba(10, 0, 0, 0.86);
+  background: rgba(10, 0, 0, 0.86);
 }
 
 .my-record-card:hover,
@@ -1587,6 +1679,8 @@ body.page-flicker .flicker-face {
 .inline-record-detail {
   display: grid;
   gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
   margin-top: 8px;
   padding: 10px;
   border-top: 1px solid #7a0000;
@@ -1605,6 +1699,8 @@ body.page-flicker .flicker-face {
 .inline-edit-form {
   display: grid;
   gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
   padding: 10px;
   border: 1px solid rgba(255, 48, 48, 0.34);
   background: rgba(8, 0, 0, 0.76);
@@ -1619,6 +1715,7 @@ body.page-flicker .flicker-face {
 .inline-edit-form input,
 .inline-edit-form textarea {
   width: 100%;
+  box-sizing: border-box;
   padding: 9px 10px;
   border: 1px solid #7a0000;
   color: #ffd6d6;
@@ -1627,6 +1724,8 @@ body.page-flicker .flicker-face {
 }
 
 .inline-edit-form textarea {
+  min-height: 112px;
+  max-height: 180px;
   resize: vertical;
 }
 
@@ -1642,6 +1741,8 @@ body.page-flicker .flicker-face {
   grid-template-columns: repeat(2, 72px);
   gap: 8px;
   justify-content: flex-end;
+  padding-top: 4px;
+  background: rgba(8, 0, 0, 0.92);
 }
 
 .record-actions {

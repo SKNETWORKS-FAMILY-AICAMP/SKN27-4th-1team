@@ -302,11 +302,15 @@ $RECYCLE.BIN/
 # End of https://www.toptal.com/developers/gitignore/api/windows,python,django
 
 # Local large database JSON & CSV files
-docs/nodes.csv
-docs/edges.csv
-docs/global_horror_database.json
-docs/ultimate_global_mythology_1000.json
-docs/verified_korean_horror_master.json
-processing/preprocessed_creepypastas.json
-processing/preprocessed_scp.json
+database/data/nodes.csv
+database/data/edges.csv
+database/data/global_horror_database.json
+database/data/ultimate_global_mythology_1000.json
+database/data/verified_korean_horror_master.json
+database/data/preprocessed_creepypastas.json
+database/data/preprocessed_scp.json
 templates/괴담.zip
+
+*_initial.py
+nodes.csv
+edges.csv

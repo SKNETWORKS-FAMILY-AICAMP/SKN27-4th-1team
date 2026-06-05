@@ -13,7 +13,7 @@
         <span>archive://goei.sillok/my</span>
         <span>나의 보관함</span>
         {% if user.is_authenticated %}
-        <a class="bbs-login" href="{% url 'accounts:logout' %}">LOGOUT [{{ user.username }}]</a>
+        <a class="bbs-login" href="{% url 'accounts:logout' %}">LOGOUT</a>
         {% else %}
         <a class="bbs-login" href="{% url 'accounts:login' %}">LOGIN</a>
         {% endif %}
@@ -21,8 +21,8 @@
 
       <nav class="bbs-nav" aria-label="괴이실록 페이지">
         <a href="{% url 'archive:sillokgwan' %}">[ 1. 기록 열람실 ]</a>
-        <a href="/archive/geumgirok.html">[ 2. 금기 자료실 ]</a>
-        <a href="/generator/goeijejoso.html">[ 3. 신규 기록실 ]</a>
+        <a href="{% url 'archive:geumgirok' %}">[ 2. 금기 자료실 ]</a>
+        <a href="{% url 'generator:goeijejoso' %}">[ 3. 신규 기록실 ]</a>
         <a href="{% url 'post:witness_board' %}">[ 4. 열린 게시판 ]</a>
         <a href="{% url 'regions:jidogam' %}">[ 5. 지역 정보실 ]</a>
         <a href="{% url 'accounts:mygirok' %}">[ 6. 나의 보관함 ]</a>
@@ -31,7 +31,12 @@
       <section class="my-record-shell" aria-label="나의 보관함">
         <header class="my-record-header">
           <h1>나의 보관함</h1>
-          <p>로그인한 사용자의 신규 기록실 생성 기록과 열린 게시판 작성글을 조회합니다.</p>
+          <p>
+            기록자 {{ profile.username }} /
+            EMAIL {{ profile.email|default:"미등록" }} /
+            가입 {{ profile.date_joined|date:"Y-m-d" }} /
+            보관 {{ profile.external_bookmark_count|add:profile.generated_bookmark_count|add:profile.post_bookmark_count }}
+          </p>
         </header>
 
         <div class="my-record-tabs" role="tablist" aria-label="나의 보관함 종류">
@@ -41,8 +46,67 @@
 
         <div class="my-record-panels">
           <section class="my-record-panel factory-record-list active" id="factoryRecords" role="tabpanel" aria-labelledby="factoryTab">
-            {% for bm in bookmarks %}
-              {% if bm.horror_type != 'Witness' %}
+            {% for story in generated_stories %}
+              <button
+                class="my-record-card factory-record-card"
+                type="button"
+                data-title="{{ story.title|default:'제목 없는 창작담' }}"
+                data-meta="신규 기록실 / {{ story.status|default:'DRAFT' }} / {{ story.region|default:'지역 미상' }} / {{ story.created_at|date:'Y-m-d' }}"
+                data-body="{{ story.content|default:'생성 내용이 없습니다.' }}"
+              >
+                <span class="record-status">{{ story.status|default:"DRAFT"|upper }}</span>
+                <h2>{{ story.title|default:"제목 없는 창작담" }}</h2>
+                <p>{{ story.region|default:"지역 미상" }} / {{ story.created_at|date:"Y-m-d" }}</p>
+              </button>
+            {% endfor %}
+
+            {% for bm in generated_bookmarks %}
+              <button
+                class="my-record-card factory-record-card"
+                type="button"
+                data-title="{{ bm.generated_story.title|default:'저장한 창작담' }}"
+                data-meta="신규 기록실 / BOOKMARK / {{ bm.generated_story.region|default:'지역 미상' }} / {{ bm.created_at|date:'Y-m-d' }}"
+                data-body="{{ bm.generated_story.content|default:'보관된 생성 기록입니다.' }}"
+              >
+                <span class="record-status">SAVED</span>
+                <h2>{{ bm.generated_story.title|default:"저장한 창작담" }}</h2>
+                <p>{{ bm.generated_story.region|default:"지역 미상" }} / {{ bm.created_at|date:"Y-m-d" }}</p>
+              </button>
+            {% endfor %}
+
+            {% for bm in creation_post_bookmarks %}
+              <button
+                class="my-record-card factory-record-card"
+                type="button"
+                data-title="{{ bm.post.title }}"
+                data-meta="열린 게시판 / 창작담 보관 / {{ bm.post.region|default:'지역 미상' }} / {{ bm.created_at|date:'Y-m-d' }}"
+                data-body="{{ bm.post.body }}"
+              >
+                <span class="record-status">SAVED</span>
+                <h2>{{ bm.post.title }}</h2>
+                <p>{{ bm.post.region|default:"지역 미상" }} / {{ bm.created_at|date:"Y-m-d" }}</p>
+              </button>
+            {% endfor %}
+
+            {% for post in creation_posts %}
+              <div
+                class="my-record-card factory-record-card"
+                role="button"
+                tabindex="0"
+                data-owned-post="true"
+                data-post-id="{{ post.id }}"
+                data-region="{{ post.region|default:'지역 미상' }}"
+                data-title="{{ post.title }}"
+                data-meta="열린 게시판 / 창작담 작성 / {{ post.region|default:'지역 미상' }} / {{ post.created_at|date:'Y-m-d' }}"
+                data-body="{{ post.body }}"
+              >
+                <span class="record-status">POSTED</span>
+                <h2 data-record-title>{{ post.title }}</h2>
+                <p><span data-record-region>{{ post.region|default:"지역 미상" }}</span> / {{ post.created_at|date:"Y-m-d" }}</p>
+              </div>
+            {% endfor %}
+
+            {% for bm in factory_bookmarks %}
               <button
                 class="my-record-card factory-record-card"
                 type="button"
@@ -51,19 +115,50 @@
                 data-body="{{ bm.horror_title }} 기록이 보관함에 저장되었습니다."
               >
                 <span class="record-status">SAVED</span>
-                <span class="factory-record-title">{{ bm.horror_title }}</span>
-                <span>{{ bm.horror_type }}</span>
-                <span>{{ bm.created_at|date:'Y-m-d' }}</span>
+                <h2>{{ bm.horror_title }}</h2>
+                <p>{{ bm.horror_type }} / {{ bm.created_at|date:'Y-m-d' }}</p>
               </button>
-              {% endif %}
-            {% empty %}
-              <p class="bbs-empty">보관된 기록이 없습니다.</p>
             {% endfor %}
+
+            {% if not generated_stories and not generated_bookmarks and not creation_post_bookmarks and not creation_posts and not factory_bookmarks %}
+              <p class="bbs-empty">보관된 기록이 없습니다.</p>
+            {% endif %}
           </section>
 
           <section class="my-record-panel witness-record-list" id="witnessRecords" role="tabpanel" aria-labelledby="witnessTab" hidden>
-            {% for bm in bookmarks %}
-              {% if bm.horror_type == 'Witness' %}
+            {% for post in witness_posts %}
+              <div
+                class="my-record-card witness-record-card"
+                role="button"
+                tabindex="0"
+                data-owned-post="true"
+                data-post-id="{{ post.id }}"
+                data-region="{{ post.region|default:'지역 미상' }}"
+                data-title="{{ post.title }}"
+                data-meta="열린 게시판 / {{ post.category }} / {{ post.region|default:'지역 미상' }} / {{ post.created_at|date:'Y-m-d' }}"
+                data-body="{{ post.body }}"
+              >
+                <span class="record-status">POSTED</span>
+                <h2 data-record-title>{{ post.title }}</h2>
+                <p><span data-record-region>{{ post.region|default:"지역 미상" }}</span> / {{ post.created_at|date:"Y-m-d" }}</p>
+              </div>
+            {% endfor %}
+
+            {% for bm in witness_post_bookmarks %}
+              <button
+                class="my-record-card witness-record-card"
+                type="button"
+                data-title="{{ bm.post.title }}"
+                data-meta="열린 게시판 / BOOKMARK / {{ bm.post.region|default:'지역 미상' }} / {{ bm.created_at|date:'Y-m-d' }}"
+                data-body="{{ bm.post.body }}"
+              >
+                <span class="record-status">SAVED</span>
+                <h2>{{ bm.post.title }}</h2>
+                <p>{{ bm.post.region|default:"지역 미상" }} / {{ bm.created_at|date:"Y-m-d" }}</p>
+              </button>
+            {% endfor %}
+
+            {% for bm in witness_bookmarks %}
               <button
                 class="my-record-card witness-record-card"
                 type="button"
@@ -75,10 +170,11 @@
                 <h2>{{ bm.horror_title }}</h2>
                 <p>{{ bm.created_at|date:'Y-m-d' }}</p>
               </button>
-              {% endif %}
-            {% empty %}
-              <p class="bbs-empty">보관된 기록이 없습니다.</p>
             {% endfor %}
+
+            {% if not witness_posts and not witness_post_bookmarks and not witness_bookmarks %}
+              <p class="bbs-empty">보관된 기록이 없습니다.</p>
+            {% endif %}
           </section>
         </div>
 
@@ -88,6 +184,174 @@
       const tabs = document.querySelectorAll(".my-record-tab");
       const panels = document.querySelectorAll(".my-record-panel");
       const cards = document.querySelectorAll(".my-record-card");
+
+      function getCsrfToken() {
+        const cookie = document.cookie.split("; ").find((item) => item.startsWith("csrftoken="));
+        return cookie ? decodeURIComponent(cookie.split("=")[1]) : "";
+      }
+
+      async function postJson(url, data) {
+        const response = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": getCsrfToken(),
+          },
+          body: JSON.stringify(data),
+        });
+        const contentType = response.headers.get("content-type") || "";
+        if (!contentType.includes("application/json")) {
+          throw new Error(`요청 실패: HTTP ${response.status}`);
+        }
+        return response.json();
+      }
+
+      function updateCardAfterEdit(card, post) {
+        card.dataset.title = post.title;
+        card.dataset.region = post.region;
+        card.dataset.body = post.body;
+
+        const metaParts = card.dataset.meta.split(" / ");
+        if (metaParts.length >= 4) {
+          metaParts[2] = post.region;
+          card.dataset.meta = metaParts.join(" / ");
+        }
+
+        const titleEl = card.querySelector("[data-record-title]");
+        const regionEl = card.querySelector("[data-record-region]");
+        if (titleEl) titleEl.textContent = post.title;
+        if (regionEl) regionEl.textContent = post.region;
+
+        const detail = card.querySelector(".inline-record-detail");
+        if (detail) {
+          const meta = detail.querySelector(".detail-meta");
+          const body = detail.querySelector(".detail-body");
+          if (meta) meta.textContent = card.dataset.meta;
+          if (body) body.textContent = post.body;
+        }
+      }
+
+      function openEditForm(card) {
+        card.querySelector(".inline-edit-form")?.remove();
+
+        const form = document.createElement("form");
+        form.className = "inline-edit-form";
+
+        const titleLabel = document.createElement("label");
+        const titleText = document.createElement("span");
+        const titleInput = document.createElement("input");
+        titleText.textContent = "제목";
+        titleInput.type = "text";
+        titleInput.value = card.dataset.title || "";
+        titleLabel.append(titleText, titleInput);
+
+        const regionLabel = document.createElement("label");
+        const regionText = document.createElement("span");
+        const regionInput = document.createElement("input");
+        regionText.textContent = "지역";
+        regionInput.type = "text";
+        regionInput.value = card.dataset.region || "";
+        regionLabel.append(regionText, regionInput);
+
+        const bodyLabel = document.createElement("label");
+        const bodyText = document.createElement("span");
+        const bodyTextarea = document.createElement("textarea");
+        bodyText.textContent = "내용";
+        bodyTextarea.rows = 5;
+        bodyTextarea.value = card.dataset.body || "";
+        bodyLabel.append(bodyText, bodyTextarea);
+
+        const actions = document.createElement("div");
+        actions.className = "inline-edit-actions";
+
+        const saveButton = document.createElement("button");
+        saveButton.className = "record-action-button save-action";
+        saveButton.type = "submit";
+        saveButton.textContent = "저장";
+
+        const cancelButton = document.createElement("button");
+        cancelButton.className = "record-action-button";
+        cancelButton.type = "button";
+        cancelButton.textContent = "취소";
+        cancelButton.addEventListener("click", (event) => {
+          event.stopPropagation();
+          form.remove();
+        });
+
+        actions.append(saveButton, cancelButton);
+        form.append(titleLabel, regionLabel, bodyLabel, actions);
+
+        form.addEventListener("click", (event) => event.stopPropagation());
+        form.addEventListener("submit", async (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+
+          try {
+            const result = await postJson(`/post/api/edit/${card.dataset.postId}/`, {
+              title: titleInput.value,
+              region: regionInput.value,
+              body: bodyTextarea.value,
+            });
+            if (result.status !== "success") {
+              throw new Error(result.message || "수정 실패");
+            }
+            updateCardAfterEdit(card, result.post);
+            form.remove();
+          } catch (error) {
+            window.alert(error.message);
+          }
+        });
+
+        const detail = card.querySelector(".inline-record-detail");
+        if (detail) {
+          detail.append(form);
+        } else {
+          card.append(form);
+        }
+        form.scrollIntoView({ block: "nearest" });
+      }
+
+      function appendOwnerActions(card, detail) {
+        if (card.dataset.ownedPost !== "true" || detail.querySelector(".record-actions")) {
+          return;
+        }
+
+        const actions = document.createElement("div");
+        actions.className = "record-actions";
+
+        const editButton = document.createElement("button");
+        editButton.className = "record-action-button edit-action";
+        editButton.type = "button";
+        editButton.textContent = "수정";
+        editButton.addEventListener("click", (event) => {
+          event.stopPropagation();
+          openEditForm(card);
+        });
+
+        const deleteButton = document.createElement("button");
+        deleteButton.className = "record-action-button delete-action";
+        deleteButton.type = "button";
+        deleteButton.textContent = "삭제";
+        deleteButton.addEventListener("click", async (event) => {
+          event.stopPropagation();
+          if (!window.confirm("이 기록을 삭제하시겠습니까?")) {
+            return;
+          }
+
+          try {
+            const result = await postJson(`/post/api/delete/${card.dataset.postId}/`, {});
+            if (result.status !== "success") {
+              throw new Error(result.message || "삭제 실패");
+            }
+            card.remove();
+          } catch (error) {
+            window.alert(error.message);
+          }
+        });
+
+        actions.append(editButton, deleteButton);
+        detail.append(actions);
+      }
 
       tabs.forEach((tab) => {
         tab.addEventListener("click", () => {
@@ -108,7 +372,11 @@
       });
 
       cards.forEach((card) => {
-        card.addEventListener("click", () => {
+        card.addEventListener("click", (event) => {
+          if (event.target.closest("form, button, input, textarea")) {
+            return;
+          }
+
           const isSelected = card.classList.contains("selected");
 
           cards.forEach((item) => item.classList.remove("selected"));
@@ -130,7 +398,21 @@
           body.textContent = card.dataset.body;
 
           detail.append(meta, body);
+          appendOwnerActions(card, detail);
           card.append(detail);
+        });
+
+        card.addEventListener("keydown", (event) => {
+          if (card.tagName !== "DIV") {
+            return;
+          }
+          if (event.target.closest("form, button, input, textarea")) {
+            return;
+          }
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            card.click();
+          }
         });
       });
     </script>

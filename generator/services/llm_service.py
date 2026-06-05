@@ -22,4 +22,4 @@ def request_ghost_story(data: dict) -> str:
         return response
     except Exception as e:
         # LLM 호출 실패 시 에러 로깅 후 파서에서 안전하게 처리할 수 있는 기본 에러 응답 반환
-        return '{"title": "기록 오염 발생", "content": "LLM 통신 중 오류가 발생했습니다.", "danger_level": "등급 미상", "summary": "시스템 오류"}'
+        return '{"title": "기록 오염 발생", "content": "LLM 통신 중 오류가 발생했습니다.", "summary": "시스템 오류"}'

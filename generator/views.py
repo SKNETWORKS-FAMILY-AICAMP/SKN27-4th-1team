@@ -25,7 +25,6 @@ def generate_story_api(request):
             return JsonResponse({
                 "title": "오류 발생", 
                 "content": str(e), 
-                "danger_level": "등급 미상", 
                 "summary": "서버 오류"
             }, status=400)
     return JsonResponse({"error": "Invalid method"}, status=405)

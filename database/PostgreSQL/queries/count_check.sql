@@ -12,8 +12,14 @@ UNION ALL
 SELECT 'generated_stories' AS table_name, COUNT(*) AS row_count
 FROM generated_stories
 UNION ALL
-SELECT 'posts' AS table_name, COUNT(*) AS row_count
-FROM posts
+SELECT 'post_post' AS table_name, COUNT(*) AS row_count
+FROM post_post
+UNION ALL
+SELECT 'post_like' AS table_name, COUNT(*) AS row_count
+FROM post_like
+UNION ALL
+SELECT 'accounts_bookmark' AS table_name, COUNT(*) AS row_count
+FROM accounts_bookmark
 UNION ALL
 SELECT 'generated_story_bookmarks' AS table_name, COUNT(*) AS row_count
 FROM generated_story_bookmarks
