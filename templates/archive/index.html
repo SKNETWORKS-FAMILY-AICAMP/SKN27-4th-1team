@@ -1,6 +1,138 @@
-{% extends "base.html" %}
+{% load static %}
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>괴이 실록</title>
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+  </head>
+  <body>
+    <main class="scene" id="scene">
+      <img class="photo dark" src="{% static 'images/dark-room.png' %}" alt="" aria-hidden="true" />
+      <img class="photo red" src="{% static 'images/red-room.png' %}" alt="" aria-hidden="true" />
+      <div class="vignette"></div>
+      <div class="noise"></div>
+      <div class="red-haze"></div>
+      <audio id="switchSound" preload="auto">
+        <source src="/static/audio/switch-sound.m4a" type="audio/mp4" />
+      </audio>
+      <audio id="horrorLoop" preload="auto" loop>
+        <source src="/static/audio/horror-loop.wav" type="audio/wav" />
+      </audio>
+      <audio id="openDoorSound" preload="auto">
+        <source src="/static/audio/opendoor.mp3" type="audio/mpeg" />
+      </audio>
+      <button class="start-button" id="startButton" type="button">기록 열기</button>
 
-{% block title %}괴이 실록{% endblock %}
+      <section class="intro-panel" aria-label="괴담 챗봇 시작">
+        <div class="title-block">
+          <h1 data-title="괴이 기록 보관소">괴이 기록 보관소</h1>
+          <p>불이 꺼지는 순간, 대답이 시작됩니다.</p>
+        </div>
+        <form class="chat-form" id="chatForm">
+          <input
+            class="chat-input"
+            id="chatInput"
+            type="text"
+            placeholder="문을 두드리듯 첫 문장을 입력하세요"
+            autocomplete="off"
+            disabled
+          />
+          <button class="send" type="submit" aria-label="전송" disabled>›</button>
+        </form>
+      </section>
+    </main>
 
-{% block content %}
-{% endblock %}
+    <script>
+      const scene = document.querySelector("#scene");
+      const input = document.querySelector("#chatInput");
+      const send = document.querySelector(".send");
+      const form = document.querySelector("#chatForm");
+      const switchSound = document.querySelector("#switchSound");
+      const horrorLoop = document.querySelector("#horrorLoop");
+      const openDoorSound = document.querySelector("#openDoorSound");
+      const startButton = document.querySelector("#startButton");
+
+      const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      let hasStarted = false;
+
+      function playSwitchSound() {
+        switchSound.currentTime = 0;
+        switchSound.play().catch(() => {});
+      }
+
+      function playHorrorLoop() {
+        horrorLoop.volume = 0.58;
+        horrorLoop.play().catch(() => {});
+      }
+
+      function playOpenDoorSound() {
+        openDoorSound.currentTime = 0;
+        openDoorSound.play().catch(() => {});
+      }
+
+      function enableChat() {
+        scene.classList.add("ready");
+        playOpenDoorSound();
+        input.disabled = false;
+        send.disabled = false;
+        window.setTimeout(() => input.focus(), 1100);
+      }
+
+      function runFlicker() {
+        if (prefersReducedMotion) {
+          enableChat();
+          return;
+        }
+
+        let step = 0;
+        const maxSteps = 14;
+
+        function tick() {
+          const progress = step / maxSteps;
+          const interval = Math.max(36, 410 - progress * 360);
+          const jitter = Math.random() * 58 - 20;
+          const flashLength = Math.max(24, interval * (0.22 + Math.random() * 0.22));
+
+          scene.classList.add("flash-on");
+          playSwitchSound();
+          window.setTimeout(() => scene.classList.remove("flash-on"), flashLength);
+
+          step += 1;
+
+          if (step <= maxSteps) {
+            window.setTimeout(tick, interval + jitter);
+          } else {
+            window.setTimeout(enableChat, 240);
+          }
+        }
+
+        tick();
+      }
+
+      function startExperience() {
+        if (hasStarted) return;
+
+        hasStarted = true;
+        startButton.disabled = true;
+        scene.classList.add("started", "flash-on");
+        playHorrorLoop();
+        window.setTimeout(runFlicker, 1000);
+      }
+
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const message = input.value.trim();
+        if (!message) {
+          input.focus();
+          return;
+        }
+
+        window.location.href = `{% url 'archive:sillokgwan' %}?q=${encodeURIComponent(message)}`;
+      });
+
+      startButton.addEventListener("click", startExperience);
+    </script>
+  </body>
+</html>

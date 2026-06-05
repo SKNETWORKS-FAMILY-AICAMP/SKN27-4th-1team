@@ -1,6 +1,72 @@
-{% extends "base.html" %}
+{% load static %}
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>괴이 실록 - 로그인</title>
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+  </head>
+  <body class="bbs-page login-page">
+    <main class="login-screen" aria-label="로그인 확인">
+      <p id="loginPrompt" class="login-prompt" aria-live="polite"></p>
 
-{% block title %}괴이 실록 - 로그인{% endblock %}
+      <form class="login-form" id="loginForm" action="{% url 'accounts:login' %}" method="post">
+        {% csrf_token %}
+        <label>
+          <span>ID</span>
+          <input type="text" name="username" autocomplete="username" />
+        </label>
+        <label>
+          <span>PW</span>
+          <input type="password" name="password" autocomplete="current-password" />
+        </label>
+        <div class="login-actions">
+          <button type="submit">로그인</button>
+          <button type="button" id="cancelLogin">취소</button>
+        </div>
+        <a class="signup-link" href="{% url 'accounts:signup' %}">아직 기록자가 아니십니까?</a>
+      </form>
+    </main>
 
-{% block content %}
-{% endblock %}
+    <script>
+      const prompt = document.querySelector("#loginPrompt");
+      const form = document.querySelector("#loginForm");
+      const cancelLogin = document.querySelector("#cancelLogin");
+      const serverError = "{{ error|default:'' }}";
+      const message = serverError || "정말로 로그인 하시겠습니까?";
+      let index = 0;
+
+      function typeNextLetter() {
+        prompt.textContent = message.slice(0, index);
+        index += 1;
+
+        if (index <= message.length) {
+          window.setTimeout(typeNextLetter, 130);
+        }
+      }
+
+      window.setTimeout(typeNextLetter, 420);
+
+      form.addEventListener("submit", (event) => {
+        const username = form.querySelector('[name="username"]').value.trim();
+        const password = form.querySelector('[name="password"]').value.trim();
+        if (!username || !password) {
+          event.preventDefault();
+          prompt.textContent = "아이디와 비밀번호를 입력하십시오.";
+          return;
+        }
+        prompt.textContent = "로그인 기록을 대조하는 중...";
+      });
+
+      cancelLogin.addEventListener("click", () => {
+        if (window.history.length > 1) {
+          window.history.back();
+          return;
+        }
+        window.location.href = "{% url 'archive:sillokgwan' %}";
+      });
+    </script>
+    <script src="{% static 'js/flicker.js' %}"></script>
+  </body>
+</html>

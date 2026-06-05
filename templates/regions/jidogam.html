@@ -1,6 +1,135 @@
-{% extends "base.html" %}
+{% load static %}
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>괴이 실록 - 지역 정보실</title>
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+  </head>
+  <body class="bbs-page bbs-map-page">
+    <main class="bbs-screen">
+      <header class="bbs-topbar">
+        <span>archive://goei.sillok/map</span>
+        <span>지역 정보실</span>
+        {% if user.is_authenticated %}
+        <a class="bbs-login" href="{% url 'accounts:logout' %}">LOGOUT [{{ user.username }}]</a>
+        {% else %}
+        <a class="bbs-login" href="{% url 'accounts:login' %}">LOGIN</a>
+        {% endif %}
+      </header>
 
-{% block title %}괴이 실록 - 지역도감{% endblock %}
+      <nav class="bbs-nav" aria-label="괴이실록 페이지">
+        <a href="{% url 'archive:sillokgwan' %}">[ 1. 기록 열람실 ]</a>
+        <a href="/archive/geumgirok.html">[ 2. 금기 자료실 ]</a>
+        <a href="/generator/goeijejoso.html">[ 3. 신규 기록실 ]</a>
+        <a href="{% url 'post:witness_board' %}">[ 4. 열린 게시판 ]</a>
+        <a href="{% url 'regions:jidogam' %}">[ 5. 지역 정보실 ]</a>
+        <a href="{% url 'accounts:mygirok' %}">[ 6. 나의 보관함 ]</a>
+      </nav>
 
-{% block content %}
-{% endblock %}
+      <section class="bbs-chat">
+        <div class="bbs-chat-title">
+          <span>▶ HOT</span>
+          <span>괴이 분포 지도</span>
+        </div>
+
+        <div class="bbs-map-toolbar" aria-label="지도 확대 축소">
+          <button type="button" id="zoomOut">-</button>
+          <output id="zoomLevel" aria-live="polite">80%</output>
+          <button type="button" id="zoomIn">+</button>
+          <button type="button" id="zoomReset">RESET</button>
+        </div>
+
+        <div class="bbs-map-container" id="mapViewport">
+          <img
+            id="mapImage"
+            src="{% static 'images/goei_map_thin_red.png' %}"
+            alt="괴이실록 지역 정보실 지도"
+            class="bbs-map-image"
+          />
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const mapImage = document.querySelector("#mapImage");
+      const mapViewport = document.querySelector("#mapViewport");
+      const zoomLevel = document.querySelector("#zoomLevel");
+      const zoomIn = document.querySelector("#zoomIn");
+      const zoomOut = document.querySelector("#zoomOut");
+      const zoomReset = document.querySelector("#zoomReset");
+
+      let zoom = 0.8;
+      const minZoom = 0.55;
+      const maxZoom = 2.2;
+      const step = 0.15;
+      let panX = 0;
+      let panY = 0;
+      let isDragging = false;
+      let dragStartX = 0;
+      let dragStartY = 0;
+      let startPanX = 0;
+      let startPanY = 0;
+
+      function applyMapTransform() {
+        mapImage.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
+        zoomLevel.textContent = `${Math.round(zoom * 100)}%`;
+      }
+
+      zoomIn.addEventListener("click", () => {
+        zoom = Math.min(maxZoom, zoom + step);
+        applyMapTransform();
+      });
+
+      zoomOut.addEventListener("click", () => {
+        zoom = Math.max(minZoom, zoom - step);
+        applyMapTransform();
+      });
+
+      zoomReset.addEventListener("click", () => {
+        zoom = 0.8;
+        panX = 0;
+        panY = 0;
+        applyMapTransform();
+      });
+
+      mapViewport.addEventListener("pointerdown", (event) => {
+        isDragging = true;
+        dragStartX = event.clientX;
+        dragStartY = event.clientY;
+        startPanX = panX;
+        startPanY = panY;
+        mapViewport.classList.add("dragging");
+        mapViewport.setPointerCapture(event.pointerId);
+      });
+
+      mapViewport.addEventListener("pointermove", (event) => {
+        if (!isDragging) return;
+
+        panX = startPanX + event.clientX - dragStartX;
+        panY = startPanY + event.clientY - dragStartY;
+        applyMapTransform();
+      });
+
+      function stopDragging(event) {
+        isDragging = false;
+        mapViewport.classList.remove("dragging");
+        if (mapViewport.hasPointerCapture(event.pointerId)) {
+          mapViewport.releasePointerCapture(event.pointerId);
+        }
+      }
+
+      mapViewport.addEventListener("pointerup", stopDragging);
+      mapViewport.addEventListener("pointercancel", stopDragging);
+
+      mapViewport.addEventListener("pointerleave", () => {
+        isDragging = false;
+        mapViewport.classList.remove("dragging");
+      });
+
+      applyMapTransform();
+    </script>
+    <script src="{% static 'js/flicker.js' %}"></script>
+  </body>
+</html>

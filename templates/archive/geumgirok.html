@@ -1,6 +1,325 @@
-{% extends "base.html" %}
+{% load static %}
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>괴이 실록 - 금기 자료실</title>
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+  </head>
+  <body class="bbs-page">
+    <main class="bbs-screen">
+      <header class="bbs-topbar">
+        <span>archive://goei.sillok/taboo</span>
+        <span>금기 자료실</span>
+        {% if user.is_authenticated %}
+        <a class="bbs-login" href="{% url 'accounts:logout' %}">LOGOUT [{{ user.username }}]</a>
+        {% else %}
+        <a class="bbs-login" href="{% url 'accounts:login' %}">LOGIN</a>
+        {% endif %}
+      </header>
 
-{% block title %}괴이 실록 - 금기록{% endblock %}
+      <nav class="bbs-nav" aria-label="괴이실록 페이지">
+        <a href="{% url 'archive:sillokgwan' %}">[ 1. 기록 열람실 ]</a>
+        <a href="/archive/geumgirok.html">[ 2. 금기 자료실 ]</a>
+        <a href="/generator/goeijejoso.html">[ 3. 신규 기록실 ]</a>
+        <a href="{% url 'post:witness_board' %}">[ 4. 열린 게시판 ]</a>
+        <a href="{% url 'regions:jidogam' %}">[ 5. 지역 정보실 ]</a>
+        <a href="{% url 'accounts:mygirok' %}">[ 6. 나의 보관함 ]</a>
+      </nav>
 
-{% block content %}
-{% endblock %}
+      <section class="bbs-notices taboo-notices" aria-label="금기 자료실 주의문">
+        <div class="notice-copy">
+          <p><span>NOTICE 01</span> 금기는 읽는 순간부터 효력을 가집니다. 모르는 척하는 것은 허용되지 않습니다.</p>
+          <p><span>NOTICE 02</span> 같은 금기를 세 번 검색하지 마십시오. 세 번째 결과는 사용자의 지역으로 고정됩니다.</p>
+          <p><span>NOTICE 03</span> 지역명이 붉게 깜빡이면 현재 위치와 일치한다는 뜻입니다.</p>
+        </div>
+        <button class="daily-taboo-button" id="dailyTabooButton" type="button">오늘의 금기</button>
+      </section>
+
+      <div class="daily-taboo-modal" id="dailyTabooModal" role="dialog" aria-modal="true" aria-labelledby="dailyTabooTitle" hidden>
+        <section class="daily-taboo-window">
+          <button class="daily-taboo-close" id="dailyTabooClose" type="button" aria-label="오늘의 금기 닫기">X</button>
+          <p class="daily-taboo-kicker">TODAY TABOO</p>
+          <h1 id="dailyTabooTitle">오늘의 금기</h1>
+          <p id="dailyTabooText"></p>
+          <p class="daily-taboo-note">사용자 식별값과 오늘 날짜로 고정된 결과입니다.</p>
+        </section>
+      </div>
+
+      <section class="bbs-chat" aria-label="금기 자료실">
+        <div class="bbs-chat-title">
+          <span>▶ HOT</span>
+          <span>금기 분류 목록</span>
+        </div>
+
+        <div class="bbs-log" id="bbsLog" aria-live="polite">
+          <p><span class="bbs-system">SYS</span> 금기 자료실 접속. 열람 권한: 임시.</p>
+          <p><span class="bbs-bot">금기 자료실</span> 번호를 입력하면 해당 금기 분류를 불러옵니다.</p>
+
+          <p><span class="bbs-system">01</span> 지역별 금기</p>
+          <p><span class="bbs-system">02</span> 이름 관련 금기</p>
+          <p><span class="bbs-system">03</span> 밤길 관련 금기</p>
+          <p><span class="bbs-system">04</span> 물가 관련 금기</p>
+          <p><span class="bbs-system">05</span> 산 · 숲 관련 금기</p>
+          <p><span class="bbs-system">06</span> 폐가 · 빈집 관련 금기</p>
+          <p><span class="bbs-system">07</span> 제사 · 의식 관련 금기</p>
+          <p><span class="bbs-system">08</span> 절대금기 목록</p>
+
+          <p><span class="bbs-bot">현재</span> 선택된 분류 없음.</p>
+        </div>
+
+        <form class="bbs-input-line" id="bbsForm">
+          <label for="bbsInput">선택 &gt;</label>
+          <input id="bbsInput" type="text" autocomplete="off" placeholder="분류 번호 또는 검색어 입력" />
+          <button type="submit" aria-label="전송">↵</button>
+        </form>
+      </section>
+    </main>
+
+    <script>
+      const form = document.querySelector("#bbsForm");
+      const input = document.querySelector("#bbsInput");
+      const log = document.querySelector("#bbsLog");
+      const dailyTabooButton = document.querySelector("#dailyTabooButton");
+      const dailyTabooModal = document.querySelector("#dailyTabooModal");
+      const dailyTabooClose = document.querySelector("#dailyTabooClose");
+      const dailyTabooText = document.querySelector("#dailyTabooText");
+
+      const categoryMap = {
+        "01": "지역별 금기",
+        "1": "지역별 금기",
+        "02": "이름 관련 금기",
+        "2": "이름 관련 금기",
+        "03": "밤길 관련 금기",
+        "3": "밤길 관련 금기",
+        "04": "물가 관련 금기",
+        "4": "물가 관련 금기",
+        "05": "산 · 숲 관련 금기",
+        "5": "산 · 숲 관련 금기",
+        "06": "폐가 · 빈집 관련 금기",
+        "6": "폐가 · 빈집 관련 금기",
+        "07": "제사 · 의식 관련 금기",
+        "7": "제사 · 의식 관련 금기",
+        "08": "절대금기 목록",
+        "8": "절대금기 목록"
+      };
+
+      const tabooData = {
+        "지역별 금기": [
+          ["서울 구도심", "새벽 엘리베이터에서 없는 층을 누르지 말 것", "██ 경고"],
+          ["강원 산간", "밤길에서 세 번째로 이름을 불러도 대답하지 말 것", "███ 금지"],
+          ["전남 해안", "물가에 떠 있는 제물을 건드리지 말 것", "████ 절대금기"]
+        ],
+        "이름 관련 금기": [
+          ["부산 항구", "모르는 사람이 본명을 물어도 세 번 이상 답하지 말 것", "██ 경고"],
+          ["강원 산간", "뒤에서 들리는 자신의 이름에 대답하지 말 것", "███ 금지"],
+          ["전국", "거울 앞에서 같은 이름을 세 번 부르지 말 것", "████ 절대금기"]
+        ],
+        "밤길 관련 금기": [
+          ["강원 산간", "세 번째 부름에 답하지 말 것", "███ 금지"],
+          ["경북 북부", "검은 우산을 쓴 사람을 따라가지 말 것", "███ 금지"],
+          ["전남 해안", "뒤에서 발소리가 나도 뛰지 말 것", "██ 경고"]
+        ],
+        "물가 관련 금기": [
+          ["전남 해안", "물 위에 떠 있는 붉은 천을 건드리지 말 것", "████ 절대금기"],
+          ["충북 호수", "물속에서 들리는 목소리에 대답하지 말 것", "███ 금지"],
+          ["제주 해안", "밤바다에 혼자 발목 이상 들어가지 말 것", "██ 경고"]
+        ],
+        "산 · 숲 관련 금기": [
+          ["강원 산간", "산길에서 같은 나무를 세 번 지나치면 멈추지 말 것", "███ 금지"],
+          ["지리산 인근", "안개 속에서 종소리가 들리면 따라가지 말 것", "████ 절대금기"],
+          ["경기 북부", "숲속에서 아이 웃음소리가 들리면 대답하지 말 것", "██ 경고"]
+        ],
+        "폐가 · 빈집 관련 금기": [
+          ["서울 외곽", "닫혀 있던 문이 안쪽에서 열리면 들어가지 말 것", "███ 금지"],
+          ["경기 남부", "빈집 안의 사진 속 인물 수를 세지 말 것", "██ 경고"],
+          ["전북 산촌", "폐가에서 발견한 이름 없는 방명록에 서명하지 말 것", "████ 절대금기"]
+        ],
+        "제사 · 의식 관련 금기": [
+          ["경북 동부", "주인 없는 제사상 앞에 앉지 말 것", "███ 금지"],
+          ["전남 해안", "바닷가에 놓인 술잔을 엎지 말 것", "██ 경고"],
+          ["충남 산촌", "초가 꺼진 뒤에도 절을 계속하지 말 것", "████ 절대금기"]
+        ],
+        "절대금기 목록": [
+          ["전국", "자신의 장례식 날짜를 검색하지 말 것", "████ 절대금기"],
+          ["전국", "거울 속에서 먼저 웃는 얼굴을 따라 웃지 말 것", "████ 절대금기"],
+          ["전국", "금기 자료실에 없는 금기를 새로 적지 말 것", "████ 절대금기"]
+        ]
+      };
+
+      const dailyTaboos = [
+        "오늘은 거울 앞에서 자신의 이름을 소리 내어 말하지 마십시오.",
+        "오늘은 뒤에서 두 번 불러도 세 번째에는 대답하지 마십시오.",
+        "오늘은 엘리베이터에서 목적지가 아닌 층의 버튼을 누르지 마십시오.",
+        "오늘은 빈 방에서 들리는 노크 소리에 답하지 마십시오.",
+        "오늘은 물가에 떠 있는 붉은 물건을 건드리지 마십시오.",
+        "오늘은 사진 속 사람 수를 세지 마십시오.",
+        "오늘은 새벽 3시 이후 같은 검색어를 세 번 입력하지 마십시오.",
+        "오늘은 불 꺼진 복도 끝을 오래 바라보지 마십시오.",
+        "오늘은 모르는 사람이 알려준 길로 돌아가지 마십시오.",
+        "오늘은 꿈에서 들은 이름을 기록하지 마십시오."
+      ];
+
+      function appendLine(className, label, message) {
+        const line = document.createElement("p");
+        const badge = document.createElement("span");
+
+        badge.className = className;
+        badge.textContent = label;
+        line.append(badge, ` ${message}`);
+        log.append(line);
+        log.scrollTop = log.scrollHeight;
+      }
+
+      function printCategory(categoryName) {
+        const items = tabooData[categoryName];
+
+        appendLine("bbs-bot", "금기 자료실", `${categoryName} 색인을 불러옵니다.`);
+        appendLine("bbs-system", "LOAD", `${items.length}개의 금기 항목 발견.`);
+
+        items.forEach((item, index) => {
+          const number = String(index + 1).padStart(3, "0");
+          appendLine(
+            "bbs-bot",
+            `#${number}`,
+            `[${item[0]}] ${item[1]} / 위험도: ${item[2]}`
+          );
+        });
+      }
+
+      function searchKeyword(keyword) {
+        const results = [];
+
+        Object.entries(tabooData).forEach(([categoryName, items]) => {
+          items.forEach((item) => {
+            const text = `${categoryName} ${item[0]} ${item[1]} ${item[2]}`;
+
+            if (text.includes(keyword)) {
+              results.push({
+                categoryName,
+                region: item[0],
+                title: item[1],
+                danger: item[2]
+              });
+            }
+          });
+        });
+
+        if (results.length === 0) {
+          appendLine("bbs-bot", "금기 자료실", `'${keyword}' 항목은 발견되지 않았습니다. 발견되지 않는 금기가 더 오래 살아남습니다.`);
+          return;
+        }
+
+        appendLine("bbs-system", "SEARCH", `${results.length}개의 관련 금기 발견.`);
+
+        results.forEach((item, index) => {
+          const number = String(index + 1).padStart(3, "0");
+
+          appendLine(
+            "bbs-bot",
+            `#${number}`,
+            `[${item.region}] ${item.title} / 분류: ${item.categoryName} / 위험도: ${item.danger}`
+          );
+        });
+      }
+
+      function hashText(text) {
+        let hash = 2166136261;
+
+        for (let index = 0; index < text.length; index += 1) {
+          hash ^= text.charCodeAt(index);
+          hash = Math.imul(hash, 16777619);
+        }
+
+        return hash >>> 0;
+      }
+
+      function getUserSeed() {
+        const storageKey = "goei-sillok-user-seed";
+        let seed = "";
+
+        try {
+          seed = window.localStorage.getItem(storageKey);
+        } catch (error) {
+          seed = "";
+        }
+
+        if (!seed) {
+          seed = window.crypto && window.crypto.randomUUID
+            ? window.crypto.randomUUID()
+            : `${Date.now()}-${Math.random()}`;
+
+          try {
+            window.localStorage.setItem(storageKey, seed);
+          } catch (error) {
+            return window.navigator.userAgent || seed;
+          }
+        }
+
+        return seed;
+      }
+
+      function getTodayTaboo() {
+        const today = new Date().toLocaleDateString("ko-KR", {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit"
+        });
+        const index = hashText(`${getUserSeed()}-${today}`) % dailyTaboos.length;
+
+        return dailyTaboos[index];
+      }
+
+      function openDailyTaboo() {
+        dailyTabooText.textContent = getTodayTaboo();
+        dailyTabooModal.hidden = false;
+        dailyTabooClose.focus();
+      }
+
+      function closeDailyTaboo() {
+        dailyTabooModal.hidden = true;
+        dailyTabooButton.focus();
+      }
+
+      form.addEventListener("submit", (event) => {
+        const message = input.value.trim();
+
+        event.preventDefault();
+
+        if (!message) {
+          input.focus();
+          return;
+        }
+
+        appendLine("bbs-user", "방문자", message);
+
+        if (categoryMap[message]) {
+          printCategory(categoryMap[message]);
+        } else {
+          searchKeyword(message);
+        }
+
+        input.value = "";
+        input.focus();
+      });
+
+      dailyTabooButton.addEventListener("click", openDailyTaboo);
+      dailyTabooClose.addEventListener("click", closeDailyTaboo);
+      dailyTabooModal.addEventListener("click", (event) => {
+        if (event.target === dailyTabooModal) {
+          closeDailyTaboo();
+        }
+      });
+
+      window.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && !dailyTabooModal.hidden) {
+          closeDailyTaboo();
+        }
+      });
+
+      window.setTimeout(() => input.focus(), 260);
+    </script>
+    <script src="{% static 'js/flicker.js' %}"></script>
+  </body>
+</html>

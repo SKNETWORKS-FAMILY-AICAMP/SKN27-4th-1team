@@ -1,6 +1,54 @@
-{% extends "base.html" %}
+{% load static %}
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>괴이 실록 - 가입</title>
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+  </head>
+  <body class="bbs-page login-page">
+    <main class="login-screen" aria-label="가입">
+      <p id="signupPrompt" class="login-prompt" aria-live="polite"></p>
 
-{% block title %}괴이 실록 - 가입{% endblock %}
+      <form class="login-form" action="{% url 'accounts:signup' %}" method="post">
+        {% csrf_token %}
+        <label>
+          <span>ID</span>
+          <input type="text" name="username" autocomplete="username" />
+        </label>
+        <label>
+          <span>PW</span>
+          <input type="password" name="password" autocomplete="new-password" />
+        </label>
+        <label>
+          <span>EMAIL</span>
+          <input type="email" name="email" autocomplete="email" />
+        </label>
+        <div class="login-actions">
+          <button type="submit">CREATE</button>
+          <a href="{% url 'accounts:login' %}">BACK</a>
+        </div>
+      </form>
+    </main>
 
-{% block content %}
-{% endblock %}
+    <script>
+      const prompt = document.querySelector("#signupPrompt");
+      const serverError = "{{ error|default:'' }}";
+      const message = serverError || "기록자가 되시겠습니까?";
+      let index = 0;
+
+      function typeNextLetter() {
+        prompt.textContent = message.slice(0, index);
+        index += 1;
+
+        if (index <= message.length) {
+          window.setTimeout(typeNextLetter, 130);
+        }
+      }
+
+      window.setTimeout(typeNextLetter, 420);
+    </script>
+    <script src="{% static 'js/flicker.js' %}"></script>
+  </body>
+</html>
