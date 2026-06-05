@@ -1,0 +1,124 @@
+{% load static %}
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>괴이 실록 - 신규 기록실</title>
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+  </head>
+  <body class="bbs-page">
+    <main class="bbs-screen">
+      <header class="bbs-topbar">
+        <span>archive://goei.sillok/lab</span>
+        <span>신규 기록실</span>
+        <a class="bbs-login" href="{% url 'accounts:login' %}">LOGIN</a>
+      </header>
+      <nav class="bbs-nav" aria-label="괴이실록 페이지">
+        <a href="{% url 'archive:sillokgwan' %}">[ 1. 기록 열람실 ]</a>
+        <a href="{% url 'archive:geumgirok' %}">[ 2. 금기 자료실 ]</a>
+        <a href="{% url 'generator:goeijejoso' %}">[ 3. 신규 기록실 ]</a>
+        <a href="{% url 'post:mokgyeokgirok' %}">[ 4. 열린 게시판 ]</a>
+        <a href="{% url 'regions:jidogam' %}">[ 5. 지역 정보실 ]</a>
+        <a href="{% url 'accounts:mypage' %}">[ 6. 나의 보관함 ]</a>
+      </nav>
+      <section class="factory-shell" aria-label="괴담 생성 실험실">
+        <form class="factory-form" id="factoryForm">
+          <div class="factory-section-title">괴이 데이터 입력</div>
+
+          <label>
+            <span>지역</span>
+            <input id="region" name="region" type="text" placeholder="예: 충청북도 괴산" />
+          </label>
+          <label>
+            <span>장소</span>
+            <input id="place" name="place" type="text" placeholder="예: 폐교 3층 음악실" />
+          </label>
+          <label>
+            <span>괴이 유형</span>
+            <select id="entityType" name="entityType">
+              <option value="귀신">귀신</option>
+              <option value="요괴">요괴</option>
+              <option value="저주">저주</option>
+              <option value="실종">실종</option>
+              <option value="도플갱어">도플갱어</option>
+              <option value="도시전설">도시전설</option>
+              <option value="인터넷괴담">인터넷괴담</option>
+            </select>
+          </label>
+          <label>
+            <span>금기</span>
+            <input id="taboo" name="taboo" type="text" placeholder="예: 이름을 세 번 부르지 말 것" />
+          </label>
+          <label>
+            <span>시간</span>
+            <input id="time" name="time" type="text" placeholder="예: 새벽 2시 17분" />
+          </label>
+          <label>
+            <span>발생 조건</span>
+            <textarea id="condition" name="condition" rows="4" placeholder="예: 비 오는 날, 복도 끝 거울을 오래 볼 때"></textarea>
+          </label>
+          <label>
+            <span>결말</span>
+            <textarea id="ending" name="ending" rows="4" placeholder="예: 기록자는 다음 날 같은 장소에서 발견된다"></textarea>
+          </label>
+
+          <button type="submit">괴담 생성</button>
+        </form>
+
+        <article class="factory-output" aria-label="생성된 괴담">
+          <div class="factory-section-title">생성 결과</div>
+          <div class="factory-story" id="factoryStory">
+            <p><span class="bbs-system">SYS</span> 좌측 데이터를 입력하면 이곳에 괴담 초안이 출력됩니다.</p>
+            <p><span class="bbs-bot">SYS</span> 연결 대기 중. 현재는 로컬 미리보기 모드입니다.</p>
+          </div>
+        </article>
+      </section>
+    </main>
+    <script>
+      const form = document.querySelector("#factoryForm");
+      const story = document.querySelector("#factoryStory");
+
+      function valueOf(id, fallback) {
+        return document.querySelector(id).value.trim() || fallback;
+      }
+
+      function appendLine(labelClass, label, message) {
+        const line = document.createElement("p");
+
+        if (label) {
+          const badge = document.createElement("span");
+          badge.className = labelClass;
+          badge.textContent = label;
+          line.append(badge, ` ${message}`);
+        } else {
+          line.textContent = message;
+        }
+
+        story.append(line);
+      }
+
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+
+        const data = {
+          region: valueOf("#region", "지역 미상"),
+          place: valueOf("#place", "기록되지 않은 장소"),
+          entityType: valueOf("#entityType", "괴이"),
+          taboo: valueOf("#taboo", "말하지 말아야 할 것"),
+          time: valueOf("#time", "시간 불명"),
+          condition: valueOf("#condition", "조건이 충족되는 순간"),
+          ending: valueOf("#ending", "끝내 기록만 남는다"),
+        };
+
+        story.replaceChildren();
+        appendLine("bbs-system", "DATA", `${data.region} / ${data.place} / ${data.entityType}`);
+        appendLine("", "", `${data.time}, ${data.place}에서는 오래전부터 '${data.taboo}'이라는 금기가 전해졌습니다.`);
+        appendLine("", "", `${data.condition}. 그 조건이 맞아떨어지는 순간, 사람들은 자신이 들은 소리가 바깥에서 난 것이 아니라 자기 뒤에서 난 것임을 알게 됩니다.`);
+        appendLine("", "", `이 기록의 결말은 언제나 같습니다. ${data.ending}.`);
+        appendLine("bbs-bot", "LLM", "추후 연결 시 위 데이터를 프롬프트로 전달해 완성본 괴담을 생성합니다.");
+      });
+    </script>
+    <script src="{% static 'js/flicker.js' %}"></script>
+  </body>
+</html>
