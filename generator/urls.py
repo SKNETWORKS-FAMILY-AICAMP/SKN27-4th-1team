@@ -7,5 +7,5 @@ app_name = 'generator'
 urlpatterns = [
     path('storymaker/', views.goeijejoso, name='storymaker'),
     path('goeijejoso/', views.goeijejoso, name='goeijejoso'),
-    path('generate/', views.goeijejoso, name='generate'),
+    path('generate/', views.generate_story_api, name='generate'),
 ]

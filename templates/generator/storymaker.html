@@ -24,6 +24,7 @@
       </nav>
       <section class="factory-shell" aria-label="괴담 생성 실험실">
         <form class="factory-form" id="factoryForm">
+          {% csrf_token %}
           <div class="factory-section-title">괴이 데이터 입력</div>
 
           <label>
@@ -98,7 +99,7 @@
         story.append(line);
       }
 
-      form.addEventListener("submit", (event) => {
+      form.addEventListener("submit", async (event) => {
         event.preventDefault();
 
         const data = {
@@ -112,11 +113,44 @@
         };
 
         story.replaceChildren();
-        appendLine("bbs-system", "DATA", `${data.region} / ${data.place} / ${data.entityType}`);
-        appendLine("", "", `${data.time}, ${data.place}에서는 오래전부터 '${data.taboo}'이라는 금기가 전해졌습니다.`);
-        appendLine("", "", `${data.condition}. 그 조건이 맞아떨어지는 순간, 사람들은 자신이 들은 소리가 바깥에서 난 것이 아니라 자기 뒤에서 난 것임을 알게 됩니다.`);
-        appendLine("", "", `이 기록의 결말은 언제나 같습니다. ${data.ending}.`);
-        appendLine("bbs-bot", "LLM", "추후 연결 시 위 데이터를 프롬프트로 전달해 완성본 괴담을 생성합니다.");
+        appendLine("bbs-system", "SYS", "서버와 연결 중... 괴담을 생성하고 있습니다.");
+
+        try {
+          const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+          const response = await fetch("{% url 'generator:generate' %}", {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify(data)
+          });
+
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+
+          const result = await response.json();
+          
+          story.replaceChildren();
+          appendLine("bbs-system", "SYS", "기록 수신 완료.");
+          appendLine("bbs-bot", "TITLE", result.title);
+          appendLine("bbs-bot", "DANGER", result.danger_level);
+          
+          // 본문 줄바꿈 처리
+          if (result.content) {
+            const lines = result.content.split('\n');
+            lines.forEach(line => {
+              if(line.trim()) appendLine("", "", line);
+            });
+          }
+
+          appendLine("bbs-system", "SUMMARY", result.summary);
+
+        } catch (error) {
+          story.replaceChildren();
+          appendLine("bbs-system", "ERROR", "서버 통신 실패: " + error.message);
+        }
       });
     </script>
     <script src="{% static 'js/flicker.js' %}"></script>
