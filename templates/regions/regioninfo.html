@@ -237,19 +237,19 @@
         <span>archive://goei.sillok/map</span>
         <span>지역 정보실</span>
         {% if user.is_authenticated %}
-        <a class="bbs-login" href="{% url 'accounts:logout' %}">LOGOUT [{{ user.username }}]</a>
+        <a class="bbs-login" href="{% url 'accounts:logout' %}">LOGOUT</a>
         {% else %}
         <a class="bbs-login" href="{% url 'accounts:login' %}">LOGIN</a>
         {% endif %}
       </header>
 
       <nav class="bbs-nav" aria-label="괴이실록 페이지">
-        <a href="{% url 'archive:sillokgwan' %}">[ 1. 기록 열람실 ]</a>
-        <a href="{% url 'archive:geumgirok' %}">[ 2. 금기 자료실 ]</a>
-        <a href="{% url 'generator:goeijejoso' %}">[ 3. 신규 기록실 ]</a>
-        <a href="{% url 'post:witness_board' %}">[ 4. 열린 게시판 ]</a>
-        <a href="{% url 'regions:jidogam' %}">[ 5. 지역 정보실 ]</a>
-        <a href="{% url 'accounts:mygirok' %}">[ 6. 나의 보관함 ]</a>
+        <a href="{% url 'archive:chatbot' %}">[ 1. 기록 열람실 ]</a>
+        <a href="{% url 'archive:archive' %}">[ 2. 금기 자료실 ]</a>
+        <a href="{% url 'generator:storymaker' %}">[ 3. 신규 기록실 ]</a>
+        <a href="{% url 'post:community' %}">[ 4. 열린 게시판 ]</a>
+        <a href="{% url 'regions:regioninfo' %}">[ 5. 지역 정보실 ]</a>
+        <a href="{% url 'accounts:mypage' %}">[ 6. 나의 보관함 ]</a>
       </nav>
 
       <section class="bbs-chat" style="flex:1; display:flex; flex-direction:column;">
@@ -311,6 +311,21 @@
       let zoom = 0.8, panX = 0, panY = 0;
       let isDragging = false, dragStartX = 0, dragStartY = 0, startPanX = 0, startPanY = 0;
 
+      function csrfToken() {
+        const cookie = document.cookie.split("; ").find((item) => item.startsWith("csrftoken="));
+        if (cookie) {
+          return decodeURIComponent(cookie.split("=")[1]);
+        }
+
+        const tokenInput = document.querySelector("[name=csrfmiddlewaretoken]");
+        return tokenInput?.value || "";
+      }
+
+      function csrfHeaders() {
+        const token = csrfToken();
+        return token ? { "X-CSRFToken": token } : {};
+      }
+
       function applyTransform() {
         mapInner.style.transform = `translate(calc(-50% + ${panX}px), calc(-50% + ${panY}px)) scale(${zoom})`;
         zoomLevelEl.textContent = `${Math.round(zoom * 100)}%`;
@@ -359,7 +374,7 @@
       const mapPins = document.getElementById('mapPins');
       let activePin = null;
 
-      fetch("{% url 'regions:region_list_api' %}")
+      fetch("{% url 'regions:region_list_api' %}", { headers: csrfHeaders() })
         .then(r => r.json())
         .then(data => {
           data.regions.forEach(region => {
@@ -391,7 +406,7 @@
         document.getElementById('panelCount').textContent = '';
         document.getElementById('panelBody').innerHTML = '<p class="loading-text">기록 열람 중...</p>';
 
-        fetch(`{% url 'regions:city_list_api' %}?region=${encodeURIComponent(regionName)}`)
+        fetch(`{% url 'regions:city_list_api' %}?region=${encodeURIComponent(regionName)}`, { headers: csrfHeaders() })
           .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
           .then(data => renderCityTree(data))
           .catch(err => {
@@ -473,7 +488,7 @@
         document.getElementById('modalBody').textContent = '';
         document.getElementById('storyModal').hidden = false;
 
-        fetch(`{% url 'regions:story_detail_api' %}?id=${encodeURIComponent(storyId)}`)
+        fetch(`{% url 'regions:story_detail_api' %}?id=${encodeURIComponent(storyId)}`, { headers: csrfHeaders() })
           .then(r => r.json())
           .then(data => {
             document.getElementById('modalMeta').textContent = `[${data.type || 'STORY'}]`;

@@ -19,11 +19,11 @@
         {% endif %}
       </header>
       <nav class="bbs-nav" aria-label="괴이실록 페이지">
-        <a href="{% url 'archive:sillokgwan' %}">[ 1. 기록 열람실 ]</a>
-        <a href="{% url 'archive:geumgirok' %}">[ 2. 금기 자료실 ]</a>
-        <a href="{% url 'generator:goeijejoso' %}">[ 3. 신규 기록실 ]</a>
-        <a href="{% url 'post:mokgyeokgirok' %}">[ 4. 열린 게시판 ]</a>
-        <a href="{% url 'regions:jidogam' %}">[ 5. 지역 정보실 ]</a>
+        <a href="{% url 'archive:chatbot' %}">[ 1. 기록 열람실 ]</a>
+        <a href="{% url 'archive:archive' %}">[ 2. 금기 자료실 ]</a>
+        <a href="{% url 'generator:storymaker' %}">[ 3. 신규 기록실 ]</a>
+        <a href="{% url 'post:community' %}">[ 4. 열린 게시판 ]</a>
+        <a href="{% url 'regions:regioninfo' %}">[ 5. 지역 정보실 ]</a>
         <a href="{% url 'accounts:mypage' %}">[ 6. 나의 보관함 ]</a>
       </nav>
       <section class="factory-shell" aria-label="괴담 생성 실험실">
@@ -218,7 +218,7 @@
               throw new Error("인증 토큰이 만료되었습니다. 새로고침 후 다시 시도해 주세요.");
             }
             if (response.redirected || response.url.includes("{% url 'accounts:login' %}")) {
-              window.location.href = `{% url 'accounts:login' %}?next={% url 'generator:goeijejoso' %}`;
+              window.location.href = `{% url 'accounts:login' %}?next={% url 'generator:storymaker' %}`;
               return;
             }
             throw new Error(`게시 실패: HTTP ${response.status}`);
@@ -228,13 +228,13 @@
 
           if (result.status === "error") {
             if (result.redirect) {
-              window.location.href = `${result.redirect}?next={% url 'generator:goeijejoso' %}`;
+              window.location.href = `${result.redirect}?next={% url 'generator:storymaker' %}`;
               return;
             }
             throw new Error(result.message || "게시 실패");
           }
 
-          window.location.href = `{% url 'post:witness_board' %}?tab=creation&post=${result.post.id}`;
+          window.location.href = `{% url 'post:community' %}?tab=creation&post=${result.post.id}`;
         } catch (error) {
           publishCreationButton.disabled = false;
           window.alert("창작담 게시 실패: " + error.message);

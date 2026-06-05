@@ -35,7 +35,7 @@ def _post_to_dict(post):
 
 
 @ensure_csrf_cookie
-def mokgyeokgirok_view(request):
+def community(request):
     if not Post.objects.exists():
         import os
         from django.conf import settings
@@ -109,7 +109,7 @@ def mokgyeokgirok_view(request):
 
     witness_posts = services.list_posts(category='WITNESS')[:10]  # Start with 10 for infinite scroll
     creation_posts = services.list_posts(category='CREATION')
-    return render(request, 'post/mokgyeokgirok.html', {
+    return render(request, 'post/community.html', {
         'witness_posts': witness_posts,
         'creation_posts': creation_posts,
     })

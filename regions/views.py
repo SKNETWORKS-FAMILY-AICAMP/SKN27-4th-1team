@@ -6,7 +6,7 @@ from .services import (
 )
 
 
-def jidogam(request):
+def regioninfo(request):
     return render(request, 'regions/regioninfo.html')
 
 

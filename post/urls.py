@@ -4,9 +4,7 @@ from . import views
 app_name = 'post'
 
 urlpatterns = [
-    path('witness/', views.mokgyeokgirok_view, name='witness_board'),
-    path('mokgyeokgirok/', views.mokgyeokgirok_view, name='mokgyeokgirok'),
-    path('mokgyeokgirok.html', views.mokgyeokgirok_view, name='mokgyeokgirok_html'),
+    path('community/', views.community, name='community'),
     path('update/<int:post_id>/', views.post_edit_api, name='update'),
     path('delete/<int:post_id>/', views.post_delete_api, name='delete'),
     path('api/create/', views.post_create_api, name='post_create_api'),

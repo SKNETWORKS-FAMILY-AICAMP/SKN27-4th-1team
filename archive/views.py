@@ -1,7 +1,10 @@
 from django.shortcuts import render
 from django.http import JsonResponse
+from django.core.exceptions import ObjectDoesNotExist
+from django.db import DatabaseError
 
 from .models import HorrorStory, MythEntity, Superstition
+from . import services
 
 
 SEARCH_RESULT_LIMIT = 10
@@ -12,12 +15,12 @@ def index(request):
     return render(request, 'archive/index.html')
 
 
-def sillokgwan(request):
-    return render(request, 'archive/sillokgwan.html')
+def chatbot(request):
+    return render(request, 'archive/chatbot.html')
 
 
-def sillokgwan_view(request):
-    return sillokgwan(request)
+def chatbot_view(request):
+    return chatbot(request)
 
 
 def sillok_search_api(request):
@@ -53,8 +56,90 @@ def sillok_search_api(request):
     })
 
 
-def geumgirok(request):
-    return render(request, 'archive/geumgirok.html')
+def archive(request):
+    return render(request, 'archive/archive.html')
+
+
+def taboo_list_api(request):
+    try:
+        taboos = [services.serialize_taboo(taboo) for taboo in services.list_taboos()]
+        total_count = Superstition.objects.count()
+    except DatabaseError:
+        return JsonResponse({
+            'status': 'error',
+            'message': '금기 테이블을 사용할 수 없습니다. migration과 DB 상태를 확인해 주세요.',
+            'taboos': [],
+        }, status=503)
+
+    return JsonResponse({
+        'status': 'success',
+        'query': '',
+        'count': len(taboos),
+        'total_count': total_count,
+        'taboos': taboos,
+    })
+
+
+def taboo_search_api(request):
+    query = request.GET.get('q', '').strip()
+    try:
+        taboos = [services.serialize_taboo(taboo) for taboo in services.search_taboos(query)]
+        total_count = Superstition.objects.count()
+    except DatabaseError:
+        return JsonResponse({
+            'status': 'error',
+            'message': '금기 테이블을 사용할 수 없습니다. migration과 DB 상태를 확인해 주세요.',
+            'taboos': [],
+        }, status=503)
+
+    return JsonResponse({
+        'status': 'success',
+        'query': query,
+        'count': len(taboos),
+        'total_count': total_count,
+        'taboos': taboos,
+    })
+
+
+def today_taboo_api(request):
+    try:
+        taboo = services.get_today_taboo()
+    except DatabaseError:
+        return JsonResponse({
+            'status': 'error',
+            'message': '금기 테이블을 사용할 수 없습니다. migration과 DB 상태를 확인해 주세요.',
+        }, status=503)
+
+    if taboo is None:
+        return JsonResponse({
+            'status': 'empty',
+            'message': '등록된 금기가 없습니다.',
+        })
+
+    return JsonResponse({
+        'status': 'success',
+        'taboo': services.serialize_taboo(taboo),
+    })
+
+
+def taboo_detail_api(request, taboo_id):
+    try:
+        taboo = services.get_taboo(taboo_id)
+    except ObjectDoesNotExist:
+        return JsonResponse({
+            'status': 'not_found',
+            'message': '해당 금기를 찾을 수 없습니다.',
+        }, status=404)
+    except DatabaseError:
+        return JsonResponse({
+            'status': 'error',
+            'message': '금기 테이블을 사용할 수 없습니다. migration과 DB 상태를 확인해 주세요.',
+        }, status=503)
+
+    return JsonResponse({
+        'status': 'success',
+        'taboo': services.serialize_taboo(taboo),
+    })
 
 
 def search_archive_records(query):

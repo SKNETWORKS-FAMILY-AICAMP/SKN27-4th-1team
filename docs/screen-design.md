@@ -38,11 +38,11 @@
 
 | 메뉴 | 이동 대상 | URL name |
 |---|---|---|
-| 기록 열람실 | 괴담 검색/챗봇 화면 | `archive:sillokgwan` |
-| 금기 자료실 | 금기 목록/오늘의 금기 화면 | `archive:geumgirok` |
-| 신규 기록실 | 괴담 생성 화면 | `generator:goeijejoso` |
-| 열린 게시판 | 목격담/창작담 게시판 | `post:mokgyeokgirok` |
-| 지역 정보실 | 지도 화면 | `regions:jidogam` |
+| 기록 열람실 | 괴담 검색/챗봇 화면 | `archive:chatbot` |
+| 금기 자료실 | 금기 목록/오늘의 금기 화면 | `archive:archive` |
+| 신규 기록실 | 괴담 생성 화면 | `generator:storymaker` |
+| 열린 게시판 | 목격담/창작담 게시판 | `post:community` |
+| 지역 정보실 | 지도 화면 | `regions:regioninfo` |
 | 나의 보관함 | 사용자 기록 화면 | `accounts:mypage` |
 
 ## 4. 화면별 설계
@@ -65,7 +65,7 @@
 1. 사용자가 `기록 열기`를 클릭합니다.
 2. 화면 깜빡임과 사운드가 재생됩니다.
 3. 입력창이 활성화됩니다.
-4. 검색어 입력 후 전송하면 `/archive/sillokgwan/?q=검색어`로 이동합니다.
+4. 검색어 입력 후 전송하면 `/archive/chatbot/?q=검색어`로 이동합니다.
 
 ### 4.2 기록 열람실
 

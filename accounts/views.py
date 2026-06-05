@@ -17,7 +17,7 @@ def _first_form_error(form):
     return errors[0]
 
 
-def _safe_next_url(request, fallback_name="accounts:mygirok"):
+def _safe_next_url(request, fallback_name="accounts:mypage"):
     next_url = request.POST.get("next") or request.GET.get("next")
     if next_url and url_has_allowed_host_and_scheme(
         url=next_url,
@@ -117,7 +117,7 @@ def mypage(request):
     creation_posts = [post for post in user_posts if post.category == 'CREATION']
     witness_posts = [post for post in user_posts if post.category == 'WITNESS']
 
-    return render(request, 'accounts/mygirok.html', {
+    return render(request, 'accounts/mypage.html', {
         'profile': profile,
         'bookmarks': bookmarks,
         'factory_bookmarks': factory_bookmarks,
