@@ -16,8 +16,6 @@ class Bookmark(models.Model):
     def __str__(self):
         return f"{self.user.username} -> {self.horror_title}"
 
-<<<<<<< HEAD
-
 class GeneratedStoryBookmark(models.Model):
     """사용자가 AI 생성 괴담을 나의 보관함에 저장한 기록이다."""
 
@@ -78,5 +76,3 @@ class PostBookmark(models.Model):
 
     def __str__(self):
         return f"{self.user_id}:{self.post_id}"
-=======
->>>>>>> a541dd6bb95b49aff9424be19c2b83c51d1b1aba
