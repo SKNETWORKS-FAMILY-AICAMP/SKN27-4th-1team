@@ -1,3 +1,4 @@
 from django.shortcuts import render
 
-# Create your views here.
+def jidogam(request):
+    return render(request, 'regions/regioninfo.html')
