@@ -11,10 +11,11 @@
     <main class="login-screen" aria-label="로그인 확인">
       <p id="loginPrompt" class="login-prompt" aria-live="polite"></p>
 
-      <form class="login-form" id="loginForm">
+      <form class="login-form" id="loginForm" action="{% url 'accounts:login' %}" method="post">
+        {% csrf_token %}
         <label>
           <span>ID</span>
-          <input type="text" name="userId" autocomplete="username" />
+          <input type="text" name="username" autocomplete="username" />
         </label>
         <label>
           <span>PW</span>
@@ -32,7 +33,8 @@
       const prompt = document.querySelector("#loginPrompt");
       const form = document.querySelector("#loginForm");
       const cancelLogin = document.querySelector("#cancelLogin");
-      const message = "정말로 로그인 하시겠습니까?";
+      const serverError = "{{ error|default:'' }}";
+      const message = serverError || "정말로 로그인 하시겠습니까?";
       let index = 0;
 
       function typeNextLetter() {
@@ -47,7 +49,13 @@
       window.setTimeout(typeNextLetter, 420);
 
       form.addEventListener("submit", (event) => {
-        event.preventDefault();
+        const username = form.querySelector('[name="username"]').value.trim();
+        const password = form.querySelector('[name="password"]').value.trim();
+        if (!username || !password) {
+          event.preventDefault();
+          prompt.textContent = "아이디와 비밀번호를 입력하십시오.";
+          return;
+        }
         prompt.textContent = "로그인 기록을 대조하는 중...";
       });
 
@@ -56,7 +64,6 @@
           window.history.back();
           return;
         }
-
         window.location.href = "{% url 'archive:sillokgwan' %}";
       });
     </script>
