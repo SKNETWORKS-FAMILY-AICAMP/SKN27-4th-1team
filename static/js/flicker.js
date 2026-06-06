@@ -12,10 +12,24 @@
   const minDelay = 4200;
   const maxDelay = 12000;
   const faceLayer = document.createElement("div");
+  const flickerSound = new Audio("/static/audio/noise.m4a");
+
+  flickerSound.preload = "auto";
+  flickerSound.volume = 0.08;
 
   faceLayer.className = "flicker-face";
   faceLayer.setAttribute("aria-hidden", "true");
   document.body.append(faceLayer);
+
+  function playFlickerSound() {
+    flickerSound.currentTime = 0;
+    flickerSound.play().catch(() => {});
+  }
+
+  function stopFlickerSound() {
+    flickerSound.pause();
+    flickerSound.currentTime = 0;
+  }
 
   function scheduleFlicker() {
     const delay = minDelay + Math.random() * (maxDelay - minDelay);
@@ -27,9 +41,11 @@
       faceLayer.style.setProperty("--flicker-face-x", `${randomX}%`);
       faceLayer.style.setProperty("--flicker-face-y", `${randomY}%`);
       document.body.classList.add("page-flicker");
+      playFlickerSound();
 
       window.setTimeout(() => {
         document.body.classList.remove("page-flicker");
+        stopFlickerSound();
         scheduleFlicker();
       }, 180);
     }, delay);

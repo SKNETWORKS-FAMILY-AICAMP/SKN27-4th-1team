@@ -8,6 +8,5 @@ urlpatterns = [
     path('login/', views.login, name='login'),
     path('logout/', views.logout, name='logout'),
     path('mypage/', views.mypage, name='mypage'),
-    path('register/', views.register, name='register'),
     path('api/bookmark/add/', views.add_bookmark_api, name='add_bookmark_api'),
 ]

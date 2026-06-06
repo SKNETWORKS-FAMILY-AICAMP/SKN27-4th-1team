@@ -9,6 +9,9 @@
   </head>
   <body class="bbs-page login-page">
     <main class="login-screen" aria-label="로그인 확인">
+      <audio id="typingSound" preload="auto" loop>
+        <source src="{% static 'audio/keyboard1.m4a' %}" type="audio/mp4" />
+      </audio>
       <p id="loginPrompt" class="login-prompt" aria-live="polite"></p>
 
       <form class="login-form" id="loginForm" action="{% url 'accounts:login' %}" method="post">
@@ -34,9 +37,21 @@
       const prompt = document.querySelector("#loginPrompt");
       const form = document.querySelector("#loginForm");
       const cancelLogin = document.querySelector("#cancelLogin");
+      const typingSound = document.querySelector("#typingSound");
       const serverError = "{{ error|default:'' }}";
       const message = serverError || "정말로 로그인 하시겠습니까?";
       let index = 0;
+
+      function startTypingSound() {
+        typingSound.currentTime = 0;
+        typingSound.volume = 0.55;
+        typingSound.play().catch(() => {});
+      }
+
+      function stopTypingSound() {
+        typingSound.pause();
+        typingSound.currentTime = 0;
+      }
 
       function typeNextLetter() {
         prompt.textContent = message.slice(0, index);
@@ -44,10 +59,15 @@
 
         if (index <= message.length) {
           window.setTimeout(typeNextLetter, 130);
+        } else {
+          stopTypingSound();
         }
       }
 
-      window.setTimeout(typeNextLetter, 420);
+      window.setTimeout(() => {
+        startTypingSound();
+        typeNextLetter();
+      }, 420);
 
       form.addEventListener("submit", (event) => {
         const csrfInput = form.querySelector('[name="csrfmiddlewaretoken"]');

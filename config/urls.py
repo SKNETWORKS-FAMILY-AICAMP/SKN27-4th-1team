@@ -23,7 +23,7 @@ urlpatterns = [
     path('', archive_views.index, name='home'),
     path('admin/', admin.site.urls),
 
-    path('accounts/', include('accounts.urls')),    # login, register, mypage
+    path('accounts/', include('accounts.urls')),    # login, signup, mypage
     path('archive/', include('archive.urls')),      # index, chatbot, archive
     path('generator/', include('generator.urls')),  # storymaker
     path('post/', include('post.urls')),            # community

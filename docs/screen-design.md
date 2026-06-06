@@ -20,7 +20,7 @@
 | 5 | 열린 게시판 | post | `post/community.html` | `/post/community/` | `post:community` |
 | 6 | 지역 정보실 | regions | `regions/regioninfo.html` | `/regions/regioninfo/` | `regions:regioninfo` |
 | 7 | 로그인 | accounts | `accounts/login.html` | `/accounts/login/` | `accounts:login` |
-| 8 | 회원가입 | accounts | `accounts/register.html` | `/accounts/register/` | `accounts:register` |
+| 8 | 회원가입 | accounts | `accounts/signup.html` | `/accounts/signup/` | `accounts:signup` |
 | 9 | 나의 보관함 | accounts | `accounts/mypage.html` | `/accounts/mypage/` | `accounts:mypage` |
 
 ## 3. 공통 레이아웃
@@ -198,8 +198,8 @@
 
 ### 4.8 회원가입
 
-- Template: `templates/accounts/register.html`
-- URL: `/accounts/register/`
+- Template: `templates/accounts/signup.html`
+- URL: `/accounts/signup/`
 - 주요 목적: 신규 사용자 등록
 
 | 입력 항목 | name | 설명 |
@@ -250,7 +250,7 @@ flowchart TD
     B --> F["지역 정보실<br/>regions/regioninfo.html"]
     B --> G["나의 보관함<br/>accounts/mypage.html"]
     G --> H["로그인<br/>accounts/login.html"]
-    H --> I["회원가입<br/>accounts/register.html"]
+    H --> I["회원가입<br/>accounts/signup.html"]
 ```
 
 ## 6. 담당 범위 기준
