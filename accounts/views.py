@@ -54,10 +54,6 @@ def signup(request):
     })
 
 
-def register(request):
-    return signup(request)
-
-
 @ensure_csrf_cookie
 def login(request):
     initial_next = request.GET.get("next", "")

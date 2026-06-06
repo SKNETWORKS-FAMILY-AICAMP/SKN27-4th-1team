@@ -38,7 +38,7 @@ SKN27-4th-1team/
 |   |
 |   |-- accounts/            # 로그인, 회원가입, 나의 기록
 |   |   |-- login.html
-|   |   |-- register.html
+|   |   |-- signup.html
 |   |   `-- mypage.html
 |   |
 |   |-- archive/             # 메인, 기록 열람실, 금기 자료실
@@ -313,4 +313,3 @@ regions.services
 
 - 완성된 HTML, CSS, JavaScript의 공통 레이아웃과 리소스 경로를 Django 구조에 맞게 정리합니다.
 - 금기는 지역/주제 메타데이터 없이 archive app에서 독립 콘텐츠로 관리합니다.
-

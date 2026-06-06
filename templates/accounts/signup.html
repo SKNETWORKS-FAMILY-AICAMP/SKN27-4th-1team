@@ -9,6 +9,9 @@
   </head>
   <body class="bbs-page login-page">
     <main class="login-screen" aria-label="가입">
+      <audio id="typingSound" preload="auto" loop>
+        <source src="{% static 'audio/keyboard1.m4a' %}" type="audio/mp4" />
+      </audio>
       <p id="signupPrompt" class="login-prompt" aria-live="polite"></p>
 
       <form class="login-form" action="{% url 'accounts:signup' %}" method="post">
@@ -39,9 +42,21 @@
 
     <script>
       const prompt = document.querySelector("#signupPrompt");
+      const typingSound = document.querySelector("#typingSound");
       const serverError = "{{ error|default:'' }}";
       const message = serverError || "기록자가 되시겠습니까?";
       let index = 0;
+
+      function startTypingSound() {
+        typingSound.currentTime = 0;
+        typingSound.volume = 0.55;
+        typingSound.play().catch(() => {});
+      }
+
+      function stopTypingSound() {
+        typingSound.pause();
+        typingSound.currentTime = 0;
+      }
 
       function typeNextLetter() {
         prompt.textContent = message.slice(0, index);
@@ -49,10 +64,15 @@
 
         if (index <= message.length) {
           window.setTimeout(typeNextLetter, 130);
+        } else {
+          stopTypingSound();
         }
       }
 
-      window.setTimeout(typeNextLetter, 420);
+      window.setTimeout(() => {
+        startTypingSound();
+        typeNextLetter();
+      }, 420);
 
       document.querySelector(".login-form").addEventListener("submit", () => {
         const csrfInput = document.querySelector('[name="csrfmiddlewaretoken"]');
