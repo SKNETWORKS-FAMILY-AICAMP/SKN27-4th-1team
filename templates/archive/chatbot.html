@@ -60,13 +60,14 @@
       const input = document.querySelector("#bbsInput");
       const log = document.querySelector("#bbsLog");
       const youtubeBgmId = "0br9VKMgdW0";
+      const youtubeBgmVolume = 50;
 
       // Local cache of last search results to handle digit select (e.g. "1", "2")
       let currentSearchResults = [];
       let lastArchiveQuery = "";
-      let lastTtsText = "";
       let currentAudio = null;
       let youtubeBgmFrame = null;
+      let youtubeBgmReadyTimer = null;
 
       function appendLine(className, label, message) {
         const line = document.createElement("p");
@@ -180,22 +181,49 @@
 
       function startYoutubeBgm() {
         if (youtubeBgmFrame) {
+          setYoutubeBgmVolume();
           return;
         }
 
+        const youtubeBgmShell = document.createElement("div");
         youtubeBgmFrame = document.createElement("iframe");
+        const youtubeBgmCover = document.createElement("div");
+
+        youtubeBgmShell.id = "youtubeBgmShell";
+        youtubeBgmShell.style.position = "fixed";
+        youtubeBgmShell.style.width = "220px";
+        youtubeBgmShell.style.height = "220px";
+        youtubeBgmShell.style.right = "0";
+        youtubeBgmShell.style.bottom = "0";
+        youtubeBgmShell.style.overflow = "hidden";
+        youtubeBgmShell.style.pointerEvents = "none";
+        youtubeBgmShell.style.zIndex = "1";
+
         youtubeBgmFrame.title = "기록 낭독 배경음";
         youtubeBgmFrame.allow = "autoplay; encrypted-media";
-        youtubeBgmFrame.src = `https://www.youtube.com/embed/${youtubeBgmId}?autoplay=1&loop=1&playlist=${youtubeBgmId}&controls=0&disablekb=1&modestbranding=1&playsinline=1`;
-        youtubeBgmFrame.style.position = "fixed";
-        youtubeBgmFrame.style.width = "1px";
-        youtubeBgmFrame.style.height = "1px";
-        youtubeBgmFrame.style.opacity = "0";
-        youtubeBgmFrame.style.pointerEvents = "none";
-        youtubeBgmFrame.style.left = "-10px";
-        youtubeBgmFrame.style.bottom = "-10px";
+        youtubeBgmFrame.referrerPolicy = "strict-origin-when-cross-origin";
+        youtubeBgmFrame.src = `https://www.youtube.com/embed/${youtubeBgmId}?autoplay=1&loop=1&playlist=${youtubeBgmId}&controls=0&disablekb=1&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`;
+        youtubeBgmFrame.style.position = "absolute";
+        youtubeBgmFrame.style.width = "220px";
+        youtubeBgmFrame.style.height = "220px";
+        youtubeBgmFrame.style.left = "0";
+        youtubeBgmFrame.style.top = "0";
         youtubeBgmFrame.style.border = "0";
-        document.body.append(youtubeBgmFrame);
+
+        youtubeBgmCover.style.position = "absolute";
+        youtubeBgmCover.style.inset = "0";
+        youtubeBgmCover.style.background = "#000";
+        youtubeBgmCover.style.zIndex = "2";
+
+        youtubeBgmShell.append(youtubeBgmFrame, youtubeBgmCover);
+        document.body.append(youtubeBgmShell);
+        youtubeBgmReadyTimer = window.setInterval(setYoutubeBgmVolume, 700);
+        window.setTimeout(() => {
+          if (youtubeBgmReadyTimer) {
+            window.clearInterval(youtubeBgmReadyTimer);
+            youtubeBgmReadyTimer = null;
+          }
+        }, 6000);
       }
 
       function stopYoutubeBgm() {
@@ -203,11 +231,35 @@
           return;
         }
 
-        youtubeBgmFrame.remove();
+        if (youtubeBgmReadyTimer) {
+          window.clearInterval(youtubeBgmReadyTimer);
+          youtubeBgmReadyTimer = null;
+        }
+
+        const youtubeBgmShell = document.querySelector("#youtubeBgmShell");
+        if (youtubeBgmShell) {
+          youtubeBgmShell.remove();
+        }
+
         youtubeBgmFrame = null;
       }
 
-      function stopTts(showMessage = false) {
+      function setYoutubeBgmVolume() {
+        if (!youtubeBgmFrame || !youtubeBgmFrame.contentWindow) {
+          return;
+        }
+
+        youtubeBgmFrame.contentWindow.postMessage(
+          JSON.stringify({
+            event: "command",
+            func: "setVolume",
+            args: [youtubeBgmVolume]
+          }),
+          "https://www.youtube.com"
+        );
+      }
+
+      function stopTts(showMessage = false, stopBgm = true) {
         if (currentAudio) {
           currentAudio.onended = null;
           currentAudio.onerror = null;
@@ -219,24 +271,51 @@
           currentAudio = null;
         }
 
-        stopYoutubeBgm();
+        if (stopBgm) {
+          stopYoutubeBgm();
+        }
 
         if (showMessage) {
           appendLine("bbs-system", "TTS", "낭독을 멈췄습니다.");
         }
       }
 
-      function speakLastTtsText() {
-        if (!lastTtsText.trim()) {
-          appendLine("bbs-bot", "기록 열람실", "아직 낭독할 괴담 본문이 없습니다. 먼저 기록 하나를 열어 주십시오.");
-          return;
-        }
+      function showTtsFailure() {
+        const fallbackMessage = "낭독 스트림을 열 수 없습니다. ElevenLabs 설정을 확인해 주십시오.";
 
-        stopTts();
+        window.setTimeout(() => {
+          fetch(`/archive/api/tts/?error=1&t=${Date.now()}`, { credentials: "same-origin" })
+            .then(res => res.json())
+            .then(data => {
+              if (data.message) {
+                appendLine("bbs-system", "TTS", data.message);
+                return;
+              }
+
+              fetch(`/archive/api/tts/?diagnose=1&t=${Date.now()}`, { credentials: "same-origin" })
+                .then(res => res.json())
+                .then(diagnoseData => {
+                  appendLine("bbs-system", "TTS", diagnoseData.message || fallbackMessage);
+                })
+                .catch(error => {
+                  console.error("TTS diagnose failed:", error);
+                  appendLine("bbs-system", "TTS", fallbackMessage);
+                });
+            })
+            .catch(error => {
+              console.error("TTS error lookup failed:", error);
+              appendLine("bbs-system", "TTS", fallbackMessage);
+            });
+        }, 400);
+      }
+
+      function startTtsStream() {
+        stopTts(false, false);
         startYoutubeBgm();
         appendLine("bbs-system", "TTS", "낭독 스트림을 여는 중...");
         currentAudio = new Audio(`/archive/api/tts/?t=${Date.now()}`);
         currentAudio.preload = "auto";
+        let playbackFailed = false;
         currentAudio.onplaying = () => {
           appendLine("bbs-system", "TTS", "기록 낭독을 시작합니다.");
         };
@@ -244,12 +323,17 @@
           stopTts();
         };
         currentAudio.onerror = () => {
+          playbackFailed = true;
           stopTts();
-          appendLine("bbs-system", "TTS", "낭독 스트림을 열 수 없습니다. ElevenLabs 설정을 확인해 주십시오.");
+          showTtsFailure();
         };
 
         currentAudio.play().catch(error => {
           console.error("TTS playback error:", error);
+          if (playbackFailed) {
+            return;
+          }
+
           stopTts();
           appendLine("bbs-system", "TTS", "브라우저가 낭독 재생을 시작하지 못했습니다.");
         });
@@ -260,7 +344,6 @@
         const rewriteUrl = `/archive/api/rewrite/?type=${encodeURIComponent(item.type)}&id=${encodeURIComponent(item.id)}&q=${encodeURIComponent(query)}`;
 
         stopTts();
-        lastTtsText = "";
         window.lastViewedRecord = item;
         appendLine("bbs-system", "DECRYPT", `[봉인 해제] ${item.name} (${item.type})`);
         appendLine("bbs-bot", "연관 지역", item.regions.join(", "));
@@ -270,7 +353,6 @@
           .then(res => res.json())
           .then(data => {
             if (data.llm_response) {
-              lastTtsText = data.llm_response;
               appendParagraphs("bbs-bot", "기록 열람실", data.llm_response);
             } else {
               appendLine("bbs-bot", "기록 열람실", "기록의 문장이 아직 풀리지 않았습니다. 다시 시도해 주십시오.");
@@ -350,18 +432,33 @@
           }
         }
 
-        if (isTtsStartCommand(message)) {
-          speakLastTtsText();
-          return;
+        // Call the API endpoint
+        const isTtsRequest = isTtsStartCommand(message);
+        stopTts();
+        if (isTtsRequest) {
+          startYoutubeBgm();
         }
 
-        // Call the API endpoint
-        stopTts();
-        lastTtsText = "";
-        appendLine("bbs-system", "SYS", "기록 열람실이 응답을 고르는 중...");
+        appendLine(
+          "bbs-system",
+          "SYS",
+          isTtsRequest ? "기록 낭독 요청을 확인하는 중..." : "기록 열람실이 응답을 고르는 중..."
+        );
         fetch(`/archive/api/search/?q=${encodeURIComponent(message)}`)
           .then(res => res.json())
           .then(data => {
+            if (data.intent === "tts_request") {
+              if (data.llm_response) {
+                appendParagraphs("bbs-bot", "기록 열람실", data.llm_response);
+              }
+
+              if (data.status === "tts_ready" && data.has_tts_text) {
+                startTtsStream();
+              }
+
+              return;
+            }
+
             if (data.status === 'success' && data.results.length > 0) {
               currentSearchResults = data.results;
               lastArchiveQuery = data.query || message;

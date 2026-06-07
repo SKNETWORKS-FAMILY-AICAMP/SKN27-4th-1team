@@ -1,4 +1,5 @@
 import json
+import logging
 from http import HTTPStatus
 
 from django.shortcuts import render
@@ -9,10 +10,13 @@ from django.db import DatabaseError
 from .models import HorrorStory, MythEntity, Superstition
 from .services.graph import run_archive_chatbot, run_archive_record_chatbot
 from .services.session_state import (
+    clear_last_tts_error,
     get_conversation_history,
+    get_last_tts_error,
     get_last_tts_text,
     save_conversation_history,
     save_last_search_results,
+    save_last_tts_error,
     save_last_tts_text,
 )
 from .services.taboo import (
@@ -100,11 +104,34 @@ def sillok_search_api(request):
 
     results = chatbot_result.get('results', [])
     llm_response = chatbot_result.get('llm_response', '')
+    if chatbot_result.get('intent') == 'tts_request':
+        has_tts_text = bool(get_last_tts_text(request).strip())
+        response_status = chatbot_result.get('status', 'tts_ready')
+        if not has_tts_text:
+            response_status = 'tts_empty'
+            llm_response = '아직 낭독할 괴담 본문이 없습니다. 먼저 기록 하나를 열어 주십시오.'
+
+        conversation_history.append({"role": "user", "content": query})
+        conversation_history.append({"role": "assistant", "content": llm_response})
+        save_conversation_history(request, conversation_history)
+        return JsonResponse({
+            'status': response_status,
+            'query': query,
+            'intent': 'tts_request',
+            'keywords': [],
+            'results': [],
+            'source_story': {},
+            'llm_response': llm_response,
+            'evaluation': {},
+            'is_passed': has_tts_text,
+            'revised': False,
+            'has_tts_text': has_tts_text,
+        })
+
     conversation_history.append({"role": "user", "content": query})
     conversation_history.append({"role": "assistant", "content": llm_response})
     save_conversation_history(request, conversation_history)
     save_last_search_results(request, results)
-    save_last_tts_text(request, "")
 
     return JsonResponse({
         'status': chatbot_result.get('status', 'success'),
@@ -190,6 +217,48 @@ def sillok_rewrite_api(request):
 
 def sillok_tts_api(request):
     """생성된 괴담 본문을 ElevenLabs 음성 MP3 스트림으로 반환한다."""
+    if request.method == 'GET' and request.GET.get('error') == '1':
+        return JsonResponse({
+            'status': 'success',
+            'message': get_last_tts_error(request),
+        })
+
+    if request.method == 'GET' and request.GET.get('diagnose') == '1':
+        text = get_last_tts_text(request).strip()
+        if not text:
+            error_message = '낭독할 괴담 본문이 없습니다.'
+            save_last_tts_error(request, error_message)
+            return JsonResponse({
+                'status': 'empty',
+                'message': error_message,
+            }, status=400)
+
+        try:
+            clear_last_tts_error(request)
+            audio_response = open_story_audio_stream(text)
+            audio_response.close()
+        except ValueError as error:
+            error_message = str(error)
+            save_last_tts_error(request, error_message)
+            logging.getLogger(__name__).warning("ElevenLabs TTS 설정 오류: %s", error_message)
+            return JsonResponse({
+                'status': 'error',
+                'message': error_message,
+            }, status=400)
+        except RuntimeError as error:
+            error_message = str(error)
+            save_last_tts_error(request, error_message)
+            logging.getLogger(__name__).warning("ElevenLabs TTS 생성 실패: %s", error_message)
+            return JsonResponse({
+                'status': 'error',
+                'message': error_message,
+            }, status=503)
+
+        return JsonResponse({
+            'status': 'ready',
+            'message': 'TTS 스트림을 열 수 있습니다.',
+        })
+
     if request.method == 'GET':
         text = get_last_tts_text(request).strip()
     elif request.method == 'POST':
@@ -202,6 +271,18 @@ def sillok_tts_api(request):
             }, status=400)
 
         text = str(request_data.get('text', '')).strip()
+        if request_data.get('prepare_only'):
+            if not text:
+                return JsonResponse({
+                    'status': 'empty',
+                    'message': '낭독할 괴담 본문이 없습니다.',
+                }, status=400)
+
+            save_last_tts_text(request, text)
+            return JsonResponse({
+                'status': 'prepared',
+                'message': '낭독 본문을 준비했습니다.',
+            })
     elif request.method not in ['GET', 'POST']:
         return JsonResponse({
             'status': 'error',
@@ -215,16 +296,23 @@ def sillok_tts_api(request):
         }, status=400)
 
     try:
+        clear_last_tts_error(request)
         audio_response = open_story_audio_stream(text)
     except ValueError as error:
+        error_message = str(error)
+        save_last_tts_error(request, error_message)
+        logging.getLogger(__name__).warning("ElevenLabs TTS 설정 오류: %s", error_message)
         return JsonResponse({
             'status': 'error',
-            'message': str(error),
+            'message': error_message,
         }, status=400)
     except RuntimeError as error:
+        error_message = str(error)
+        save_last_tts_error(request, error_message)
+        logging.getLogger(__name__).warning("ElevenLabs TTS 생성 실패: %s", error_message)
         return JsonResponse({
             'status': 'error',
-            'message': str(error),
+            'message': error_message,
         }, status=503)
 
     response = StreamingHttpResponse(

@@ -33,7 +33,7 @@ def open_story_audio_stream(text: str) -> Any:
     model_id = os.getenv("ELEVENLABS_MODEL_ID", "eleven_multilingual_v2").strip()
     payload = build_tts_payload(cleaned_text, model_id)
     request = Request(
-        url=build_tts_url(voice_id),
+        url=build_tts_url(voice_id, model_id),
         data=json.dumps(payload).encode("utf-8"),
         headers={
             "xi-api-key": api_key,
@@ -64,12 +64,13 @@ def iter_audio_chunks(response: Any, chunk_size: int = 8192) -> Iterator[bytes]:
         response.close()
 
 
-def build_tts_url(voice_id: str) -> str:
+def build_tts_url(voice_id: str, model_id: str) -> str:
     """선택한 목소리와 기본 출력 설정을 포함한 ElevenLabs 스트리밍 TTS URL을 만든다."""
-    return (
-        ELEVENLABS_API_URL.format(voice_id=voice_id)
-        + "?output_format=mp3_44100_128&optimize_streaming_latency=1"
-    )
+    url = ELEVENLABS_API_URL.format(voice_id=voice_id) + "?output_format=mp3_44100_128"
+    if model_id != "eleven_v3":
+        url += "&optimize_streaming_latency=1"
+
+    return url
 
 
 def build_tts_payload(text: str, model_id: str) -> dict[str, Any]:

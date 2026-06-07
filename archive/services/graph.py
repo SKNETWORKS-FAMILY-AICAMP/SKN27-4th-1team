@@ -16,6 +16,7 @@ from common.llm_factory import get_llm
 
 
 class ArchiveState(TypedDict, total=False):
+    status: str
     question: str
     intent: str
     keywords: list[str]
@@ -48,6 +49,27 @@ def run_archive_chatbot(
             "revised": False,
         }
 
+    intent = classify_intent(cleaned_question)
+    if intent == "tts_request":
+        archive_graph = build_archive_graph()
+        final_state = archive_graph.invoke({
+            "question": cleaned_question,
+            "conversation_history": conversation_history or [],
+            "revise_count": 0,
+        })
+        return {
+            "status": final_state.get("status", "tts_ready"),
+            "query": cleaned_question,
+            "intent": final_state.get("intent", "tts_request"),
+            "keywords": [],
+            "results": [],
+            "source_story": {},
+            "llm_response": final_state.get("llm_response", ""),
+            "evaluation": final_state.get("evaluation", {}),
+            "is_passed": final_state.get("is_passed", True),
+            "revised": False,
+        }
+
     keywords = extract_keywords(cleaned_question)
     search_results = search_archive_records_by_keywords(keywords)
     if search_results:
@@ -70,7 +92,7 @@ def run_archive_chatbot(
             "revised": False,
         }
 
-    if classify_intent(cleaned_question) == "archive_query":
+    if intent == "archive_query":
         message = "관련 괴담 기록을 찾지 못했습니다. 다른 키워드로 다시 물어봐 주세요."
         return {
             "status": "success",
@@ -93,7 +115,7 @@ def run_archive_chatbot(
     })
 
     return {
-        "status": "success",
+        "status": final_state.get("status", "success"),
         "query": cleaned_question,
         "intent": final_state.get("intent", ""),
         "keywords": final_state.get("keywords", []),
@@ -166,6 +188,7 @@ def build_archive_graph():
     builder = StateGraph(ArchiveState)
     builder.add_node("intent", intent_node)
     builder.add_node("general_chat", general_chat_node)
+    builder.add_node("tts", tts_node)
     builder.add_node("search", search_node)
     builder.add_node("generate", generate_node)
     builder.add_node("evaluate", evaluation_node)
@@ -177,9 +200,11 @@ def build_archive_graph():
         {
             "archive_query": "search",
             "general_chat": "general_chat",
+            "tts_request": "tts",
         },
     )
     builder.add_edge("general_chat", END)
+    builder.add_edge("tts", END)
     builder.add_conditional_edges(
         "search",
         decide_after_search_node,
@@ -237,12 +262,29 @@ def general_chat_node(state: ArchiveState) -> dict[str, Any]:
     }
 
 
-def decide_intent_node(state: ArchiveState) -> Literal["archive_query", "general_chat"]:
+def decide_intent_node(state: ArchiveState) -> Literal["archive_query", "general_chat", "tts_request"]:
     """분류된 intent 값에 따라 archive 검색 흐름과 일반 대화 흐름을 나눈다."""
     if state.get("intent") == "archive_query":
         return "archive_query"
 
+    if state.get("intent") == "tts_request":
+        return "tts_request"
+
     return "general_chat"
+
+
+def tts_node(state: ArchiveState) -> dict[str, Any]:
+    """낭독 요청은 LLM을 호출하지 않고 view의 스트리밍 처리로 넘길 상태만 만든다."""
+    return {
+        "status": "tts_ready",
+        "intent": "tts_request",
+        "llm_response": "마지막으로 열린 기록을 낭독하겠습니다.",
+        "search_results": [],
+        "source_story": {},
+        "evaluation": {},
+        "is_passed": True,
+        "skip_evaluation": True,
+    }
 
 
 def decide_after_search_node(state: ArchiveState) -> Literal["finish"]:
@@ -264,9 +306,21 @@ def decide_after_generate_node(state: ArchiveState) -> Literal["evaluate", "fini
     return "evaluate"
 
 
-def classify_intent(question: str) -> Literal["archive_query", "general_chat"]:
+def classify_intent(question: str) -> Literal["archive_query", "general_chat", "tts_request"]:
     """질문 문구의 단서를 보고 괴담 조회 요청인지 일반 대화인지 판단한다."""
     normalized_question = question.lower().strip()
+    tts_markers = [
+        "읽어줘",
+        "읽어",
+        "낭독",
+        "tts",
+        "들려줘",
+        "재생",
+    ]
+    for marker in tts_markers:
+        if marker in normalized_question:
+            return "tts_request"
+
     archive_markers = [
         "괴담",
         "조회",
