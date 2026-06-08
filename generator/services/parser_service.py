@@ -48,7 +48,6 @@ def _normalize_story_payload(data: dict) -> dict:
     return {
         "title": str(data.get("title") or "제목 없는 기록"),
         "content": str(data.get("content") or "생성된 본문이 없습니다."),
-        "summary": str(data.get("summary") or ""),
     }
 
 
@@ -62,6 +61,5 @@ def parse_llm_response(raw_text: str) -> dict:
     except (TypeError, json.JSONDecodeError):
         return {
             "title": "기록 오염 발생",
-            "content": "데이터 파싱에 실패했습니다.",
-            "summary": "시스템 오류"
+            "content": "데이터 파싱에 실패했습니다."
         }
