@@ -1698,7 +1698,9 @@ body.bbs-factory-page {
 }
 
 .my-record-header {
+  position: relative;
   border-bottom: 1px solid #7a0000;
+  padding-right: 120px;
   padding-bottom: 10px;
 }
 
@@ -1713,7 +1715,47 @@ body.bbs-factory-page {
 }
 
 .my-record-header p {
+  margin-top: 8px;
   color: #ff4b4b;
+}
+
+.account-delete-form {
+  position: absolute;
+  right: 0;
+  bottom: 10px;
+  margin: 0;
+}
+
+.account-delete-button {
+  min-width: 96px;
+  height: 34px;
+  border: 1px solid #7a0000;
+  border-radius: 0;
+  color: #ffd6d6;
+  font: inherit;
+  background: #140000;
+  cursor: pointer;
+}
+
+.account-delete-button:hover,
+.account-delete-button:focus-visible {
+  border-color: #ff3030;
+  color: #050000;
+  background: #ff3030;
+  outline: none;
+}
+
+@media (max-width: 720px) {
+  .my-record-header {
+    padding-right: 0;
+  }
+
+  .account-delete-form {
+    position: static;
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 10px;
+  }
 }
 
 .my-record-tabs {
