@@ -4,6 +4,7 @@ from django.http import JsonResponse
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.csrf import ensure_csrf_cookie
+from django.views.decorators.http import require_POST
 import json
 from .forms import LoginForm, SignupForm
 from .models import Bookmark
@@ -83,6 +84,13 @@ def login(request):
 
 def logout(request):
     services.logout_user(request)
+    return redirect('home')
+
+
+@login_required(login_url='accounts:login')
+@require_POST
+def delete_account(request):
+    services.delete_account(request)
     return redirect('home')
 
 

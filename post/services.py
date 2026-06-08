@@ -10,6 +10,23 @@ def list_posts(category=None):
     return qs
 
 
+def search_posts(category, keyword, limit=100):
+    keyword = str(keyword or '').strip()
+    qs = list_posts(category=category)
+    if not keyword:
+        return qs[:limit]
+
+    filters = (
+        db_models.Q(title__icontains=keyword)
+        | db_models.Q(region__icontains=keyword)
+        | db_models.Q(body__icontains=keyword)
+    )
+    if keyword.isdecimal():
+        filters |= db_models.Q(id=int(keyword))
+
+    return qs.filter(filters).distinct()[:limit]
+
+
 def create_post(author, category, title, region, body):
     return Post.objects.create(
         author=author,

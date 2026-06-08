@@ -161,7 +161,7 @@ def run_import():
             with open(global_path, 'r', encoding='utf-8') as f:
                 global_data = json.load(f)
             global_updates = [
-                {"id": f"legend_{normalize_string(item.get('name', ''))}", "desc": item.get('description_raw', '')}
+                {"id": f"legend_{normalize_string(item.get('name', ''))}", "desc": item.get('description', '')}
                 for item in global_data
             ]
             session.run("""
@@ -185,7 +185,7 @@ def run_import():
             """, batch=reddit_updates)
 
         # D. SCP
-        scp_path = os.path.join(preprocessing_dir, 'preprocessed_scp.json')
+        scp_path = os.path.join(docs_dir, 'preprocessed_scp.json')
         if os.path.exists(scp_path):
             print("-> Binding preprocessed_scp.json...")
             with open(scp_path, 'r', encoding='utf-8') as f:
@@ -199,20 +199,27 @@ def run_import():
             SET n.text = CASE WHEN row.text <> '' THEN row.text ELSE n.text END
             """, batch=scp_updates)
 
-        # E. Creepypasta
-        cp_path = os.path.join(preprocessing_dir, 'preprocessed_creepypastas.json')
-        if os.path.exists(cp_path):
-            print("-> Binding preprocessed_creepypastas.json...")
-            with open(cp_path, 'r', encoding='utf-8') as f:
-                cp_data = json.load(f)
-            cp_updates = [
-                {"id": f"story_{normalize_string(item.get('title', ''))}", "body": item.get('body', '')}
-                for item in cp_data if normalize_string(item.get('title', ''))
-            ]
+        # E. DC인사이드
+        dc_path = os.path.join(docs_dir, 'dcinside_horror_filtered.json')
+        if os.path.exists(dc_path):
+            print("-> Binding dcinside_horror_filtered.json...")
+            with open(dc_path, 'r', encoding='utf-8') as f:
+                dc_data = json.load(f)
+            dc_updates = []
+            for item in dc_data:
+                title = item.get('title', '').strip()
+                content = item.get('content', '')
+                if not content:
+                    continue
+                display_title = title if title and title not in ('[경험]', '[괴담]', '[공포]', '[창작]', '[사건/사고]') else content[:30].strip() + '...'
+                norm = normalize_string(display_title)
+                if norm:
+                    dc_updates.append({"id": f"story_{norm}", "body": content})
             session.run("""
             UNWIND $batch AS row MATCH (s:Story {id: row.id})
             SET s.body = CASE WHEN row.body <> '' AND s.body IS NULL THEN row.body ELSE s.body END
-            """, batch=cp_updates)
+            """, batch=dc_updates)
+            print(f"   DC인사이드 바인딩: {len(dc_updates)}건")
 
         # --- 엣지 로드 ---
         print("Importing Edges from edges.csv...")

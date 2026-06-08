@@ -7,7 +7,7 @@
     <title>괴이 실록 - 나의 보관함</title>
     <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
   </head>
-  <body class="bbs-page">
+  <body class="bbs-page bbs-mypage-page">
     <main class="bbs-screen">
       <header class="bbs-topbar">
         <span>archive://goei.sillok/my</span>
@@ -37,15 +37,71 @@
             가입 {{ profile.date_joined|date:"Y-m-d" }} /
             보관 {{ profile.external_bookmark_count|add:profile.generated_bookmark_count|add:profile.post_bookmark_count }}
           </p>
+          <form class="account-delete-form" id="accountDeleteForm" method="post" action="{% url 'accounts:delete_account' %}">
+            {% csrf_token %}
+            <button class="account-delete-button" type="submit">회원 탈퇴</button>
+          </form>
         </header>
 
         <div class="my-record-tabs" role="tablist" aria-label="나의 보관함 종류">
-          <button id="factoryTab" class="my-record-tab active" type="button" role="tab" aria-selected="true" aria-controls="factoryRecords">창작담 기록</button>
-          <button id="witnessTab" class="my-record-tab" type="button" role="tab" aria-selected="false" aria-controls="witnessRecords">목격담 기록</button>
+          <button id="witnessTab" class="my-record-tab active" type="button" role="tab" aria-selected="true" aria-controls="witnessRecords">목격담 기록</button>
+          <button id="factoryTab" class="my-record-tab" type="button" role="tab" aria-selected="false" aria-controls="factoryRecords">창작담 기록</button>
         </div>
 
         <div class="my-record-panels">
-          <section class="my-record-panel factory-record-list active" id="factoryRecords" role="tabpanel" aria-labelledby="factoryTab">
+          <section class="my-record-panel witness-record-list active" id="witnessRecords" role="tabpanel" aria-labelledby="witnessTab">
+            {% for post in witness_posts %}
+              <div
+                class="my-record-card witness-record-card"
+                role="button"
+                tabindex="0"
+                data-owned-post="true"
+                data-post-id="{{ post.id }}"
+                data-region="{{ post.region|default:'지역 미상' }}"
+                data-title="{{ post.title }}"
+                data-meta="열린 게시판 / {{ post.category }} / {{ post.region|default:'지역 미상' }} / {{ post.created_at|date:'Y-m-d' }}"
+                data-body="{{ post.body }}"
+              >
+                <span class="record-status">POSTED</span>
+                <h2 data-record-title>{{ post.title }}</h2>
+                <p><span data-record-region>{{ post.region|default:"지역 미상" }}</span> / {{ post.created_at|date:"Y-m-d" }}</p>
+              </div>
+            {% endfor %}
+
+            {% for bm in witness_post_bookmarks %}
+              <button
+                class="my-record-card witness-record-card"
+                type="button"
+                data-title="{{ bm.post.title }}"
+                data-meta="열린 게시판 / BOOKMARK / {{ bm.post.region|default:'지역 미상' }} / {{ bm.created_at|date:'Y-m-d' }}"
+                data-body="{{ bm.post.body }}"
+              >
+                <span class="record-status">SAVED</span>
+                <h2>{{ bm.post.title }}</h2>
+                <p>{{ bm.post.region|default:"지역 미상" }} / {{ bm.created_at|date:"Y-m-d" }}</p>
+              </button>
+            {% endfor %}
+
+            {% for bm in witness_bookmarks %}
+              <button
+                class="my-record-card witness-record-card"
+                type="button"
+                data-title="{{ bm.horror_title }}"
+                data-meta="열린 게시판 / POSTED / {{ bm.created_at|date:'Y-m-d' }}"
+                data-body="{{ bm.horror_title }} 기록이 보관함에 저장되었습니다."
+              >
+                <span class="record-status">POSTED</span>
+                <h2>{{ bm.horror_title }}</h2>
+                <p>{{ bm.created_at|date:'Y-m-d' }}</p>
+              </button>
+            {% endfor %}
+
+            {% if not witness_posts and not witness_post_bookmarks and not witness_bookmarks %}
+              <p class="bbs-empty">보관된 기록이 없습니다.</p>
+            {% endif %}
+          </section>
+
+          <section class="my-record-panel factory-record-list" id="factoryRecords" role="tabpanel" aria-labelledby="factoryTab" hidden>
             {% for story in generated_stories %}
               <button
                 class="my-record-card factory-record-card"
@@ -125,57 +181,6 @@
             {% endif %}
           </section>
 
-          <section class="my-record-panel witness-record-list" id="witnessRecords" role="tabpanel" aria-labelledby="witnessTab" hidden>
-            {% for post in witness_posts %}
-              <div
-                class="my-record-card witness-record-card"
-                role="button"
-                tabindex="0"
-                data-owned-post="true"
-                data-post-id="{{ post.id }}"
-                data-region="{{ post.region|default:'지역 미상' }}"
-                data-title="{{ post.title }}"
-                data-meta="열린 게시판 / {{ post.category }} / {{ post.region|default:'지역 미상' }} / {{ post.created_at|date:'Y-m-d' }}"
-                data-body="{{ post.body }}"
-              >
-                <span class="record-status">POSTED</span>
-                <h2 data-record-title>{{ post.title }}</h2>
-                <p><span data-record-region>{{ post.region|default:"지역 미상" }}</span> / {{ post.created_at|date:"Y-m-d" }}</p>
-              </div>
-            {% endfor %}
-
-            {% for bm in witness_post_bookmarks %}
-              <button
-                class="my-record-card witness-record-card"
-                type="button"
-                data-title="{{ bm.post.title }}"
-                data-meta="열린 게시판 / BOOKMARK / {{ bm.post.region|default:'지역 미상' }} / {{ bm.created_at|date:'Y-m-d' }}"
-                data-body="{{ bm.post.body }}"
-              >
-                <span class="record-status">SAVED</span>
-                <h2>{{ bm.post.title }}</h2>
-                <p>{{ bm.post.region|default:"지역 미상" }} / {{ bm.created_at|date:"Y-m-d" }}</p>
-              </button>
-            {% endfor %}
-
-            {% for bm in witness_bookmarks %}
-              <button
-                class="my-record-card witness-record-card"
-                type="button"
-                data-title="{{ bm.horror_title }}"
-                data-meta="열린 게시판 / POSTED / {{ bm.created_at|date:'Y-m-d' }}"
-                data-body="{{ bm.horror_title }} 기록이 보관함에 저장되었습니다."
-              >
-                <span class="record-status">POSTED</span>
-                <h2>{{ bm.horror_title }}</h2>
-                <p>{{ bm.created_at|date:'Y-m-d' }}</p>
-              </button>
-            {% endfor %}
-
-            {% if not witness_posts and not witness_post_bookmarks and not witness_bookmarks %}
-              <p class="bbs-empty">보관된 기록이 없습니다.</p>
-            {% endif %}
-          </section>
         </div>
 
       </section>
@@ -184,6 +189,7 @@
       const tabs = document.querySelectorAll(".my-record-tab");
       const panels = document.querySelectorAll(".my-record-panel");
       const cards = document.querySelectorAll(".my-record-card");
+      const accountDeleteForm = document.querySelector("#accountDeleteForm");
 
       function getCsrfToken() {
         const cookie = document.cookie.split("; ").find((item) => item.startsWith("csrftoken="));
@@ -371,6 +377,12 @@
         });
       });
 
+      accountDeleteForm?.addEventListener("submit", (event) => {
+        if (!window.confirm("진짜 탈퇴 하시겠습니까?")) {
+          event.preventDefault();
+        }
+      });
+
       cards.forEach((card) => {
         card.addEventListener("click", (event) => {
           if (event.target.closest("form, button, input, textarea")) {
@@ -400,6 +412,7 @@
           detail.append(meta, body);
           appendOwnerActions(card, detail);
           card.append(detail);
+          detail.scrollIntoView({ block: "nearest" });
         });
 
         card.addEventListener("keydown", (event) => {

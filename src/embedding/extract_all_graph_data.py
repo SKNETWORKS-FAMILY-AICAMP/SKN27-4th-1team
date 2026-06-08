@@ -137,7 +137,7 @@ def main():
                     wk_id = add_general_node(wk, "countermeasure")
                     edges.add((node_id, wk_id, "WARDED_OFF_BY"))
                 
-                src_name = "나무위키" if source == "namu_wiki" else "위키백과"
+                src_name = "나무위키" if source in ("namu_wiki", "namuwiki") else "위키백과"
                 src_id = add_general_node(src_name, "source")
                 edges.add((node_id, src_id, "RECORDED_IN"))
 
@@ -198,7 +198,7 @@ def main():
             edges.add((node_id, src_id, "POSTED_ON"))
 
     # 4. Parse preprocessed_scp.json (995 entries)
-    scp_path = os.path.join(processing_dir, 'preprocessed_scp.json')
+    scp_path = os.path.join(data_dir, 'preprocessed_scp.json')
     if os.path.exists(scp_path):
         print("-> Parsing preprocessed_scp.json...")
         with open(scp_path, 'r', encoding='utf-8') as f:
@@ -260,61 +260,87 @@ def main():
                     # Try to link if target node exists in graph
                     edges.add((scp_id, legend_id, "FEATURES"))
 
-    # 5. Parse preprocessed_creepypastas.json (3,387 entries)
-    cp_path = os.path.join(processing_dir, 'preprocessed_creepypastas.json')
-    if os.path.exists(cp_path):
-        print("-> Parsing preprocessed_creepypastas.json...")
-        with open(cp_path, 'r', encoding='utf-8') as f:
-            cp_data = json.load(f)
-            
-        # Common cross-references between Creepypastas and Korean/Global legends (e.g. Slenderman, Jeff, Yokai)
-        cross_ref_mapping = {
-            "slenderman": ["슬렌더맨", "slender man"],
-            "jeff": ["제프", "jeff the killer"],
-            "eyeless": ["아이리스", "eyeless jack"],
-            "dokkebbi": ["도깨비", "goblin"],
-            "gumiho": ["구미호", "nine-tailed fox"],
-            "ghost": ["유령", "귀신"],
-            "vampire": ["뱀파이어", "흡혈귀"],
-            "werewolf": ["늑대인간"],
-            "demon": ["악마", "사탄"]
+    # 5. Parse dcinside_horror_filtered.json
+    dc_path = os.path.join(data_dir, 'dcinside_horror_filtered.json')
+    if os.path.exists(dc_path):
+        print("-> Parsing dcinside_horror_filtered.json...")
+        with open(dc_path, 'r', encoding='utf-8') as f:
+            dc_data = json.load(f)
+
+        dc_entity_keywords = {
+            "귀신": "귀신/원혼", "유령": "귀신/원혼", "원혼": "귀신/원혼",
+            "가위눌": "수면마비/가위눌림", "빙의": "빙의",
+            "구미호": "구미호", "도깨비": "도깨비",
+            "처녀귀신": "처녀귀신", "물귀신": "물귀신",
         }
-        
-        for item in cp_data:
-            title = item.get('title')
-            body = item.get('body', '')
-            tags = item.get('tags', [])
-            categories = item.get('categories', [])
-            
-            # Add Creepypasta node as Story
-            node_id = add_story_node(title)
+
+        dc_region_keywords = {
+            '서울': ['서울', '한강', '명동', '강남', '홍대', '신촌', '종로', '잠실', '이태원', '마포'],
+            '인천': ['인천', '송도', '부평'],
+            '부산': ['부산', '해운대', '광안리', '남포동'],
+            '대구': ['대구', '동성로'],
+            '대전': ['대전', '둔산', '유성'],
+            '광주': ['광주'],
+            '울산': ['울산'],
+            '경기': ['수원', '성남', '고양', '용인', '안양', '부천', '의정부', '파주', '평택'],
+            '강원': ['강릉', '춘천', '원주', '속초', '동해'],
+            '충청': ['청주', '천안', '세종'],
+            '전라': ['전주', '목포', '여수', '순천'],
+            '경상': ['경주', '포항', '창원', '진주', '안동'],
+            '제주': ['제주', '서귀포'],
+        }
+
+        def extract_dc_region(text):
+            for city, keywords in dc_region_keywords.items():
+                if any(kw in text for kw in keywords):
+                    return city
+            return '한국'
+
+        for item in dc_data:
+            title = item.get('title', '')
+            content = item.get('content', '')
+
+            # 본문에서 지역 키워드로 구체적 지역 추출
+            region = extract_dc_region(content)
+
+            # 제목이 카테고리 태그뿐이면 본문 앞부분으로 노드명 생성
+            display_title = title.strip()
+            if not display_title or display_title in ('[경험]', '[괴담]', '[공포]', '[창작]', '[사건/사고]'):
+                display_title = content[:30].strip() + '...'
+
+            node_id = add_story_node(display_title)
             if not node_id:
                 continue
-                
-            # Origin
-            origin_id = add_general_node("Global", "origin")
-            edges.add((node_id, origin_id, "ORIGINATED_IN"))
-            
-            # Categories as locations/filters
-            for cat in categories:
-                cat_id = add_general_node(cat, "location")
-                edges.add((node_id, cat_id, "HAPPENED_IN"))
-                
-            # Tags as location tags
-            for tag in tags:
-                tag_id = add_general_node(tag, "location")
-                edges.add((node_id, tag_id, "HAPPENED_IN"))
-                
-            # Source
-            src_id = add_general_node("Creepypasta Wiki", "source")
+
+            # 출처
+            src_id = add_general_node("DC인사이드 공포 갤러리", "source")
             edges.add((node_id, src_id, "POSTED_ON"))
-            
-            # Cross-referencing to Yokai/Legends
-            for key, keywords in cross_ref_mapping.items():
-                if any(kw.lower() in body.lower() or kw.lower() in title.lower() or key in tags for kw in keywords):
-                    legend_norm = normalize_string(keywords[0])
-                    legend_id = f"legend_{legend_norm}"
-                    edges.add((node_id, legend_id, "FEATURES"))
+
+            # 지역
+            origin_id = add_general_node(region, "origin")
+            edges.add((node_id, origin_id, "ORIGINATED_IN"))
+
+            # 장소 추출
+            locations = []
+            if "학교" in content: locations.append("학교")
+            if "도로" in content or "터널" in content or "고속도로" in content: locations.append("도로/터널")
+            if "아파트" in content or "엘리베이터" in content: locations.append("아파트")
+            if "산" in content or "숲" in content: locations.append("산/숲")
+            if "화장실" in content: locations.append("화장실")
+            if "병원" in content: locations.append("병원")
+            if "묘지" in content or "공동묘지" in content: locations.append("묘지")
+            for loc in locations:
+                loc_id = add_general_node(loc, "location")
+                edges.add((node_id, loc_id, "HAPPENED_IN"))
+
+            # 등장 엔티티 추출
+            for kw, entity_name in dc_entity_keywords.items():
+                if kw in content:
+                    ent_id = add_legend_node(entity_name, "legend")
+                    if ent_id:
+                        edges.add((node_id, ent_id, "FEATURES"))
+
+        print(f"   DC인사이드: {len(dc_data)}건 처리")
 
     # Write Nodes CSV
     with open(os.path.join(data_dir, 'nodes.csv'), 'w', encoding='utf-8', newline='') as f:

@@ -27,6 +27,12 @@ def logout_user(request):
     auth_logout(request)
 
 
+def delete_account(request):
+    user = request.user
+    auth_logout(request)
+    user.delete()
+
+
 def get_user_profile(user):
     return {
         "username": user.username,
