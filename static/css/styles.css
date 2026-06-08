@@ -115,6 +115,120 @@ body {
   opacity: 0.38;
 }
 
+.scene-auth-link {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  z-index: 6;
+  display: grid;
+  place-items: center;
+  min-width: 84px;
+  height: 32px;
+  border: 1px solid rgba(255, 48, 48, 0.34);
+  border-radius: 6px;
+  color: rgba(255, 210, 208, 0.78);
+  font-family: "DungGeunMo", "Courier New", "D2Coding", "Nanum Gothic Coding", monospace;
+  font-size: 14px;
+  text-decoration: none;
+  background:
+    linear-gradient(180deg, rgba(22, 0, 0, 0.42), rgba(0, 0, 0, 0.62)),
+    rgba(0, 0, 0, 0.34);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 12px 34px rgba(0, 0, 0, 0.45),
+    0 0 24px rgba(180, 0, 0, 0.12);
+  backdrop-filter: blur(10px);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-8px);
+  transition:
+    opacity 620ms ease 140ms,
+    transform 620ms ease 140ms;
+}
+
+.scene.ready .scene-auth-link {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.scene-auth-link:hover,
+.scene-auth-link:focus-visible {
+  border-color: rgba(255, 48, 48, 0.82);
+  color: #fff4f4;
+  outline: none;
+  text-shadow:
+    0 0 8px rgba(255, 48, 48, 0.78),
+    0 0 18px rgba(255, 0, 0, 0.54);
+}
+
+.scene-nav {
+  position: absolute;
+  left: 50%;
+  bottom: 32px;
+  z-index: 6;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 10px;
+  width: min(760px, calc(100vw - 28px));
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 48, 48, 0.26);
+  border-radius: 6px;
+  color: rgba(255, 210, 208, 0.72);
+  font-family: "DungGeunMo", "Courier New", "D2Coding", "Nanum Gothic Coding", monospace;
+  font-size: clamp(12px, 1.6vw, 15px);
+  background:
+    linear-gradient(180deg, rgba(22, 0, 0, 0.42), rgba(0, 0, 0, 0.62)),
+    rgba(0, 0, 0, 0.34);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 18px 52px rgba(0, 0, 0, 0.5),
+    0 0 32px rgba(180, 0, 0, 0.14);
+  backdrop-filter: blur(10px);
+  text-shadow:
+    1px 0 0 rgba(0, 255, 255, 0.22),
+    -1px 0 0 rgba(255, 0, 90, 0.34),
+    0 0 8px rgba(255, 0, 0, 0.44);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 8px);
+  transition:
+    opacity 620ms ease 140ms,
+    transform 620ms ease 140ms;
+}
+
+.scene.ready .scene-nav {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate(-50%, 0);
+}
+
+.scene-nav a {
+  color: inherit;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.scene-nav a::before {
+  content: "[ ";
+  color: rgba(255, 48, 48, 0.5);
+}
+
+.scene-nav a::after {
+  content: " ]";
+  color: rgba(255, 48, 48, 0.5);
+}
+
+.scene-nav a:hover,
+.scene-nav a:focus-visible {
+  color: #fff4f4;
+  outline: none;
+  text-shadow:
+    0 0 8px rgba(255, 48, 48, 0.78),
+    0 0 18px rgba(255, 0, 0, 0.54);
+}
+
 .start-button {
   position: absolute;
   top: 50%;
@@ -411,6 +525,12 @@ body.bbs-taboo-page {
   overflow: hidden;
 }
 
+body.bbs-community-page,
+body.bbs-mypage-page {
+  height: 100vh;
+  overflow: hidden;
+}
+
 body.bbs-page::before {
   content: "";
   position: fixed;
@@ -503,6 +623,14 @@ body.page-flicker .flicker-face {
   overflow: hidden;
 }
 
+.bbs-community-page .bbs-screen,
+.bbs-mypage-page .bbs-screen {
+  grid-template-rows: auto auto minmax(0, 1fr);
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
+}
+
 body.bbs-factory-page {
   height: 100vh;
   overflow: hidden;
@@ -520,6 +648,7 @@ body.bbs-factory-page {
   grid-template-columns: 1fr auto 1fr;
   gap: 12px;
   align-items: center;
+  min-height: 42px;
   padding: 4px 8px;
   border-block: 2px solid #ff3030;
   font-size: clamp(12px, 2vw, 16px);
@@ -1484,12 +1613,18 @@ body.bbs-factory-page {
 
 .community-shell {
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto auto auto minmax(0, 1fr);
   gap: 12px;
   min-height: 68vh;
   border: 1px solid #7a0000;
   padding: 14px;
   background: rgba(0, 0, 0, 0.78);
+}
+
+.bbs-community-page .community-shell {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .community-header {
@@ -1499,6 +1634,11 @@ body.bbs-factory-page {
   align-items: start;
   border-bottom: 1px solid #7a0000;
   padding-bottom: 10px;
+}
+
+.community-header > div {
+  display: grid;
+  gap: 8px;
 }
 
 .community-header h1,
@@ -1513,6 +1653,60 @@ body.bbs-factory-page {
 
 .community-header p {
   color: #ff4b4b;
+}
+
+.community-search-bar {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid #7a0000;
+  color: #f2f2f2;
+  background: #050000;
+}
+
+.community-search-bar[hidden] {
+  display: none;
+}
+
+.community-search-bar input,
+.community-search-bar button {
+  height: 36px;
+  border: 1px solid #7a0000;
+  border-radius: 0;
+  font: inherit;
+}
+
+.community-search-bar input {
+  min-width: 0;
+  padding: 0 10px;
+  color: #ff3030;
+  background: #090000;
+}
+
+.community-search-bar button {
+  padding: 0 14px;
+  color: #050000;
+  background: #ff3030;
+  cursor: pointer;
+}
+
+.community-search-bar button:hover,
+.community-search-bar button:focus-visible {
+  color: #ff3030;
+  background: #050000;
+  outline: none;
+}
+
+@media (max-width: 720px) {
+  .community-search-bar {
+    grid-template-columns: 1fr;
+  }
+
+  .community-search-bar button {
+    width: 100%;
+  }
 }
 
 .write-button,
@@ -1611,6 +1805,11 @@ body.bbs-factory-page {
   padding-right: 8px;
 }
 
+.bbs-community-page .post-list {
+  max-height: none;
+  min-height: 0;
+}
+
 .post-list[hidden] {
   display: none;
 }
@@ -1690,11 +1889,18 @@ body.bbs-factory-page {
 
 .my-record-shell {
   display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
   gap: 12px;
   min-height: 68vh;
   border: 1px solid #7a0000;
   padding: 14px;
   background: rgba(0, 0, 0, 0.78);
+}
+
+.bbs-mypage-page .my-record-shell {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .my-record-header {
@@ -1783,18 +1989,41 @@ body.bbs-factory-page {
 }
 
 .my-record-panels {
+  display: grid;
   min-height: 0;
+  overflow: hidden;
 }
 
 .my-record-panel {
   display: grid;
   align-content: start;
   gap: 10px;
+  height: 100%;
+  min-height: 0;
   overflow-y: auto;
   max-height: 58vh;
-  padding: 12px;
+  padding: 12px 12px 24px;
   border: 1px solid #7a0000;
   background: #050000;
+  overscroll-behavior: contain;
+}
+
+.bbs-mypage-page .my-record-panel {
+  max-height: none;
+  min-height: 0;
+}
+
+.my-record-panel::-webkit-scrollbar {
+  width: 12px;
+}
+
+.my-record-panel::-webkit-scrollbar-track {
+  background: #050000;
+  border: 1px solid #7a0000;
+}
+
+.my-record-panel::-webkit-scrollbar-thumb {
+  background: #ff3030;
 }
 
 .my-record-panel[hidden] {

@@ -7,7 +7,7 @@
     <title>괴이 실록 - 열린 게시판</title>
     <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
   </head>
-  <body class="bbs-page">
+  <body class="bbs-page bbs-community-page">
     <main class="bbs-screen">
       <header class="bbs-topbar">
         <span>archive://goei.sillok/witness</span>
@@ -39,6 +39,13 @@
           <button id="witnessBoardTab" class="community-tab active" type="button" role="tab" aria-selected="true" aria-controls="witnessBoard">목격담</button>
           <button id="creationBoardTab" class="community-tab" type="button" role="tab" aria-selected="false" aria-controls="creationBoard">창작담</button>
         </div>
+
+        <form class="community-search-bar" id="communitySearchForm">
+          <label for="communitySearchInput">검색</label>
+          <input id="communitySearchInput" type="search" autocomplete="off" placeholder="번호, 제목, 지역, 내용으로 검색" />
+          <button type="submit">SEARCH</button>
+          <button type="button" id="communitySearchReset">ALL</button>
+        </form>
 
         <form class="write-panel" id="writePanel" hidden>
           <label>
@@ -124,6 +131,9 @@
       // Tab switching
       const boardTabs = document.querySelectorAll('.community-tab');
       const postLists = document.querySelectorAll('.post-list');
+      const communitySearchForm = document.querySelector('#communitySearchForm');
+      const communitySearchInput = document.querySelector('#communitySearchInput');
+      const communitySearchReset = document.querySelector('#communitySearchReset');
       let activeBoard = 'witnessBoard';
 
       boardTabs.forEach(tab => {
@@ -139,13 +149,104 @@
             list.hidden = !isActive;
           });
           closeExpandedPosts();
+          communitySearchInput.value = '';
+          resetActiveBoardList();
         });
       });
+
+      function activeCategory() {
+        return activeBoard === 'creationBoard' ? 'CREATION' : 'WITNESS';
+      }
+
+      function activeList() {
+        return document.querySelector(`#${activeBoard}`);
+      }
 
       function closeExpandedPosts() {
         document.querySelectorAll('.post-card.expanded').forEach(c => c.classList.remove('expanded'));
         document.querySelectorAll('.post-detail').forEach(d => d.remove());
         document.querySelectorAll('.post-edit-form').forEach(f => f.remove());
+      }
+
+      function buildPostCard(post) {
+        const isCreation = post.category === 'CREATION';
+        const card = document.createElement('button');
+        card.className = isCreation ? 'post-card creation-card' : 'post-card';
+        card.type = 'button';
+        card.dataset.postId = post.id;
+        card.dataset.authorId = post.author_id || '';
+
+        const meta = document.createElement('div');
+        meta.className = 'post-meta';
+        const numSpan = document.createElement('span');
+        numSpan.textContent = post.number_str;
+        const regionSpan = document.createElement('span');
+        regionSpan.textContent = post.region;
+        const countSpan = document.createElement('span');
+        countSpan.textContent = isCreation ? `추천 ${post.likes}` : `조회 ${post.views}`;
+        meta.append(numSpan, regionSpan, countSpan);
+
+        const heading = document.createElement('h2');
+        heading.textContent = post.title;
+
+        const preview = document.createElement('p');
+        preview.textContent = post.body.length > 80 ? post.body.slice(0, 79) + '…' : post.body;
+
+        card.append(meta, heading, preview);
+        bindPostCard(card);
+        return card;
+      }
+
+      function renderPostCards(posts, emptyText) {
+        const targetList = activeList();
+        targetList.replaceChildren();
+        closeExpandedPosts();
+
+        if (!posts.length) {
+          const empty = document.createElement('p');
+          empty.style.cssText = 'color:#ff4b4b; padding:12px;';
+          empty.textContent = emptyText;
+          targetList.append(empty);
+          return;
+        }
+
+        posts.forEach(post => targetList.append(buildPostCard(post)));
+      }
+
+      async function loadActiveBoardPosts() {
+        const category = activeCategory();
+        const limit = category === 'CREATION' ? 100 : witnessLimit;
+        const resp = await fetch(`/post/api/list/?category=${category}&offset=0&limit=${limit}`);
+        const data = await resp.json();
+        if (data.status !== 'success') return;
+
+        renderPostCards(data.posts, category === 'CREATION' ? '등록된 창작담이 없습니다.' : '등록된 목격담이 없습니다.');
+        if (category === 'WITNESS') {
+          witnessOffset = data.posts.length;
+          hasMoreWitness = data.has_more;
+        }
+      }
+
+      async function searchActiveBoardPosts() {
+        const query = communitySearchInput.value.trim();
+        if (!query) {
+          await loadActiveBoardPosts();
+          return;
+        }
+
+        const category = activeCategory();
+        const resp = await fetch(`/post/api/search/?category=${category}&q=${encodeURIComponent(query)}`);
+        const data = await resp.json();
+        if (data.status !== 'success') return;
+
+        renderPostCards(data.posts, `'${query}' 색인 결과가 없습니다.`);
+        if (category === 'WITNESS') {
+          hasMoreWitness = false;
+        }
+      }
+
+      function resetActiveBoardList() {
+        loadActiveBoardPosts().catch(() => {});
       }
 
       function showEditForm(card, post) {
@@ -332,6 +433,17 @@
 
       document.querySelectorAll('.post-card').forEach(bindPostCard);
 
+      communitySearchForm.addEventListener('submit', event => {
+        event.preventDefault();
+        searchActiveBoardPosts().catch(() => {});
+      });
+
+      communitySearchReset.addEventListener('click', () => {
+        communitySearchInput.value = '';
+        resetActiveBoardList();
+        communitySearchInput.focus();
+      });
+
       // Write form
       const writeButton = document.querySelector('#writeButton');
       const writePanel = document.querySelector('#writePanel');
@@ -346,12 +458,14 @@
           window.location.href = LOGIN_URL;
           return;
         }
+        communitySearchForm.hidden = true;
         writePanel.hidden = false;
         postTitle.focus();
       });
 
       cancelWrite.addEventListener('click', () => {
         writePanel.hidden = true;
+        communitySearchForm.hidden = false;
         writePanel.reset();
       });
 
@@ -413,6 +527,7 @@
 
         writePanel.reset();
         writePanel.hidden = true;
+        communitySearchForm.hidden = false;
       });
 
       // Infinite scroll configuration
