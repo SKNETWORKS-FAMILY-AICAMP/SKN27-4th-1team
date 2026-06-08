@@ -39,62 +39,51 @@ def community(request):
     if not Post.objects.exists():
         import os
         from django.conf import settings
-        
-        # 1. Load Korean master for WITNESS posts (up to 30 items)
-        korean_path = os.path.join(settings.BASE_DIR, 'docs', 'verified_korean_horror_master.json')
-        if os.path.exists(korean_path):
+
+        dc_path = os.path.join(settings.BASE_DIR, 'database', 'data', 'dcinside_horror_filtered.json')
+        if os.path.exists(dc_path):
             try:
-                with open(korean_path, 'r', encoding='utf-8') as f:
-                    korean_data = json.load(f)
-                count = 0
-                for item in korean_data:
-                    if count >= 100:
-                        break
-                    title = item.get('title', '').strip()
+                with open(dc_path, 'r', encoding='utf-8') as f:
+                    dc_data = json.load(f)
+
+                CREATION_TITLES = {'[창작]'}
+                WITNESS_TITLES = {'[경험]', '[괴담]', '[사건/사고]'}
+
+                witness_count = creation_count = 0
+                for item in dc_data:
+                    title_tag = item.get('title', '').strip()
                     content = item.get('content', '').strip()
-                    region = item.get('region', '한국').strip()
-                    if title and content:
+                    if not content:
+                        continue
+
+                    # 제목이 카테고리 태그뿐이면 본문 앞 30자로 대체
+                    display_title = content[:30] + '...' if title_tag in WITNESS_TITLES | CREATION_TITLES else title_tag
+
+                    if title_tag in WITNESS_TITLES and witness_count < 200:
                         Post.objects.create(
                             category='WITNESS',
-                            title=title,
-                            region=region,
-                            body=content[:2000], # Safe truncate
-                            views=10 + count * 7,
-                            likes=0
+                            title=display_title,
+                            region='한국',
+                            body=content[:2000],
+                            views=10 + witness_count * 3,
+                            likes=0,
                         )
-                        count += 1
-            except Exception as e:
-                print("Error loading initial Korean horror data:", e)
+                        witness_count += 1
 
-        # 2. Load Creepypastas for CREATION posts (up to 30 items)
-        cp_path = os.path.join(settings.BASE_DIR, 'preprocessing', 'preprocessed_creepypastas.json')
-        if os.path.exists(cp_path):
-            try:
-                with open(cp_path, 'r', encoding='utf-8') as f:
-                    cp_data = json.load(f)
-                # Sort by rating to load high quality ones
-                cp_data = sorted(cp_data, key=lambda x: x.get('rating', 0), reverse=True)
-                count = 0
-                for item in cp_data:
-                    if count >= 100:
-                        break
-                    title = item.get('title', '').strip()
-                    body = item.get('body', '').strip()
-                    categories = item.get('categories', [])
-                    region = categories[0] if categories else 'Global'
-                    if title and body:
+                    elif title_tag in CREATION_TITLES and creation_count < 100:
                         Post.objects.create(
                             category='CREATION',
-                            title=title,
-                            region=region,
-                            body=body[:2000],
+                            title=display_title,
+                            region='한국',
+                            body=content[:2000],
                             views=0,
-                            likes=int(float(item.get('rating', 5.0)) * 5)
+                            likes=0,
                         )
-                        count += 1
+                        creation_count += 1
+
             except Exception as e:
-                print("Error loading initial Creepypasta data:", e)
-                
+                print("Error loading dcinside data:", e)
+
         # Fallback to defaults if still empty
         if not Post.objects.exists():
             for dummy in INITIAL_POSTS:

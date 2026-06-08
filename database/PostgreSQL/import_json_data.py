@@ -45,9 +45,9 @@ def import_horror_stories() -> int:
     rows = load_json("verified_korean_horror_master.json")
     count = 0
 
-    for row in rows:
+    for i, row in enumerate(rows):
         source = row.get("source") or "verified_korean_horror_master"
-        source_ref_id = str(row["id"])
+        source_ref_id = str(row.get("id") or i)
         content = row.get("content") or ""
 
         HorrorStory.objects.update_or_create(
@@ -74,14 +74,14 @@ def import_myth_entities() -> int:
     count = 0
     source = "ultimate_global_mythology_1000"
 
-    for row in rows:
+    for i, row in enumerate(rows):
         metadata = {}
         if "habitats" in row:
             metadata["habitats"] = row.get("habitats") or []
 
         MythEntity.objects.update_or_create(
             source=source,
-            source_ref_id=str(row["id"]),
+            source_ref_id=str(row.get("id") or i),
             defaults={
                 "name": row.get("name") or "",
                 "origin": row.get("origin") or "",
@@ -94,6 +94,47 @@ def import_myth_entities() -> int:
                 "source_site": row.get("source_site") or "",
                 "source_url": row.get("source_url") or "",
                 "metadata": metadata,
+            },
+        )
+        count += 1
+
+    return count
+
+
+def import_scp_entities() -> int:
+    scp_path = DATA_DIR / "preprocessed_scp.json"
+    if not scp_path.exists():
+        print("preprocessed_scp.json 없음, 건너뜀")
+        return 0
+
+    with scp_path.open(encoding="utf-8") as f:
+        rows = json.load(f)
+    count = 0
+    source = "scp_wiki_ko"
+
+    for row in rows:
+        code = row.get("code") or ""
+        korean_name = row.get("korean_name") or ""
+        name = f"{code} - {korean_name}" if korean_name else code
+        text = row.get("text") or ""
+        obj_class = row.get("object_class") or ""
+        tags = row.get("tags") or []
+
+        MythEntity.objects.update_or_create(
+            source=source,
+            source_ref_id=code,
+            defaults={
+                "name": name,
+                "origin": "SCP 재단",
+                "description": make_preview(text, 500),
+                "behavior": text[:2000],
+                "weakness": obj_class,
+                "history": "",
+                "signs": "",
+                "survival_rules": tags,
+                "source_site": "SCP 재단 한국어 위키",
+                "source_url": row.get("source_url") or "",
+                "metadata": {"object_class": obj_class, "tags": tags},
             },
         )
         count += 1
@@ -126,6 +167,7 @@ def main() -> None:
     imported = {
         "horror_stories": import_horror_stories(),
         "myth_entities": import_myth_entities(),
+        "scp_entities": import_scp_entities(),
         "superstitions": import_superstitions(),
     }
 
