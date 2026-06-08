@@ -19,6 +19,7 @@ def login_user(request, username, password):
         return None
 
     auth_login(request, user)
+    request.session.set_expiry(0)
     return user
 
 
