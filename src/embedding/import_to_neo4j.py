@@ -234,6 +234,17 @@ def run_import():
             CREATE (source)-[r:{r_type}]->(target)
             """)
 
+        # body 없는 노드 정리 — mythology에서 제거된 항목 등 빈 껍데기 삭제
+        print("\nCleaning up empty nodes...")
+        result = session.run("""
+        MATCH (c)
+        WHERE (c:Legend OR c:Yokai)
+        AND (c.body IS NULL OR c.body = '')
+        DETACH DELETE c
+        RETURN count(c) AS deleted
+        """)
+        print(f"-> 본문 없는 노드 {result.single()['deleted']}개 삭제")
+
         print("\nVerifying imported counts:")
         for record in session.run("MATCH (n) RETURN labels(n) AS labels, count(n) AS cnt"):
             print(f"Label: {record['labels']} - Count: {record['cnt']}")

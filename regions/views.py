@@ -2,7 +2,7 @@ from django.shortcuts import render
 from django.http import JsonResponse
 from .services import (
     query_region_relations, get_region_list,
-    get_cities_by_region, city_nodes_exist, build_city_nodes, get_story_body
+    get_cities_by_region, get_story_body
 )
 
 
@@ -34,9 +34,6 @@ def city_list_api(request):
     region_name = request.GET.get('region', '').strip()
     if not region_name:
         return JsonResponse({'status': 'empty', 'cities': [], 'stories': []})
-
-    if not city_nodes_exist():
-        build_city_nodes()
 
     cities = get_cities_by_region(region_name)
 
