@@ -59,9 +59,15 @@
       const form = document.querySelector("#bbsForm");
       const input = document.querySelector("#bbsInput");
       const log = document.querySelector("#bbsLog");
+      const youtubeBgmId = "0br9VKMgdW0";
+      const youtubeBgmVolume = 50;
 
       // Local cache of last search results to handle digit select (e.g. "1", "2")
       let currentSearchResults = [];
+      let lastArchiveQuery = "";
+      let currentAudio = null;
+      let youtubeBgmFrame = null;
+      let youtubeBgmReadyTimer = null;
 
       function appendLine(className, label, message) {
         const line = document.createElement("p");
@@ -110,6 +116,258 @@
         return cookieValue;
       }
 
+      function normalizeRecordText(value) {
+        return String(value || "")
+          .toLowerCase()
+          .replace(/[^0-9a-z가-힣]/g, "");
+      }
+
+      function getRecordNameTokens(name) {
+        return String(name || "")
+          .split(/[^0-9A-Za-z가-힣]+/)
+          .map(token => normalizeRecordText(token))
+          .filter(token => token.length >= 2);
+      }
+
+      function findSelectedRecord(message) {
+        if (currentSearchResults.length === 0) {
+          return null;
+        }
+
+        const normalizedMessage = normalizeRecordText(message);
+        const exactMatches = currentSearchResults.filter(item => {
+          const normalizedName = normalizeRecordText(item.name);
+          return normalizedName && normalizedMessage.includes(normalizedName);
+        });
+        if (exactMatches.length === 1) {
+          return exactMatches[0];
+        }
+
+        if (exactMatches.length > 1) {
+          return { ambiguous: true };
+        }
+
+        const tokenMatches = currentSearchResults
+          .map(item => {
+            const tokens = getRecordNameTokens(item.name);
+            const score = tokens.filter(token => normalizedMessage.includes(token)).length;
+            return { item, score };
+          })
+          .filter(match => match.score > 0)
+          .sort((left, right) => right.score - left.score);
+
+        if (tokenMatches.length === 0) {
+          return null;
+        }
+
+        if (tokenMatches.length === 1 || tokenMatches[0].score > tokenMatches[1].score) {
+          return tokenMatches[0].item;
+        }
+
+        return { ambiguous: true };
+      }
+
+      function isTtsStartCommand(message) {
+        const normalizedMessage = normalizeRecordText(message);
+        const commands = ["읽어줘", "읽어", "낭독", "tts", "들려줘", "재생"];
+        return commands.some(command => normalizedMessage.includes(normalizeRecordText(command)));
+      }
+
+      function isTtsStopCommand(message) {
+        const normalizedMessage = normalizeRecordText(message);
+        const commands = ["멈춰", "중지", "정지", "그만", "stop", "스톱"];
+        return commands.some(command => normalizedMessage.includes(normalizeRecordText(command)));
+      }
+
+      function startYoutubeBgm() {
+        if (youtubeBgmFrame) {
+          setYoutubeBgmVolume();
+          return;
+        }
+
+        const youtubeBgmShell = document.createElement("div");
+        youtubeBgmFrame = document.createElement("iframe");
+        const youtubeBgmCover = document.createElement("div");
+
+        youtubeBgmShell.id = "youtubeBgmShell";
+        youtubeBgmShell.style.position = "fixed";
+        youtubeBgmShell.style.width = "220px";
+        youtubeBgmShell.style.height = "220px";
+        youtubeBgmShell.style.right = "0";
+        youtubeBgmShell.style.bottom = "0";
+        youtubeBgmShell.style.overflow = "hidden";
+        youtubeBgmShell.style.pointerEvents = "none";
+        youtubeBgmShell.style.zIndex = "1";
+
+        youtubeBgmFrame.title = "기록 낭독 배경음";
+        youtubeBgmFrame.allow = "autoplay; encrypted-media";
+        youtubeBgmFrame.referrerPolicy = "strict-origin-when-cross-origin";
+        youtubeBgmFrame.src = `https://www.youtube.com/embed/${youtubeBgmId}?autoplay=1&loop=1&playlist=${youtubeBgmId}&controls=0&disablekb=1&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`;
+        youtubeBgmFrame.style.position = "absolute";
+        youtubeBgmFrame.style.width = "220px";
+        youtubeBgmFrame.style.height = "220px";
+        youtubeBgmFrame.style.left = "0";
+        youtubeBgmFrame.style.top = "0";
+        youtubeBgmFrame.style.border = "0";
+
+        youtubeBgmCover.style.position = "absolute";
+        youtubeBgmCover.style.inset = "0";
+        youtubeBgmCover.style.background = "#000";
+        youtubeBgmCover.style.zIndex = "2";
+
+        youtubeBgmShell.append(youtubeBgmFrame, youtubeBgmCover);
+        document.body.append(youtubeBgmShell);
+        youtubeBgmReadyTimer = window.setInterval(setYoutubeBgmVolume, 700);
+        window.setTimeout(() => {
+          if (youtubeBgmReadyTimer) {
+            window.clearInterval(youtubeBgmReadyTimer);
+            youtubeBgmReadyTimer = null;
+          }
+        }, 6000);
+      }
+
+      function stopYoutubeBgm() {
+        if (!youtubeBgmFrame) {
+          return;
+        }
+
+        if (youtubeBgmReadyTimer) {
+          window.clearInterval(youtubeBgmReadyTimer);
+          youtubeBgmReadyTimer = null;
+        }
+
+        const youtubeBgmShell = document.querySelector("#youtubeBgmShell");
+        if (youtubeBgmShell) {
+          youtubeBgmShell.remove();
+        }
+
+        youtubeBgmFrame = null;
+      }
+
+      function setYoutubeBgmVolume() {
+        if (!youtubeBgmFrame || !youtubeBgmFrame.contentWindow) {
+          return;
+        }
+
+        youtubeBgmFrame.contentWindow.postMessage(
+          JSON.stringify({
+            event: "command",
+            func: "setVolume",
+            args: [youtubeBgmVolume]
+          }),
+          "https://www.youtube.com"
+        );
+      }
+
+      function stopTts(showMessage = false, stopBgm = true) {
+        if (currentAudio) {
+          currentAudio.onended = null;
+          currentAudio.onerror = null;
+          currentAudio.onplaying = null;
+          currentAudio.pause();
+          currentAudio.currentTime = 0;
+          currentAudio.removeAttribute("src");
+          currentAudio.load();
+          currentAudio = null;
+        }
+
+        if (stopBgm) {
+          stopYoutubeBgm();
+        }
+
+        if (showMessage) {
+          appendLine("bbs-system", "TTS", "낭독을 멈췄습니다.");
+        }
+      }
+
+      function showTtsFailure() {
+        const fallbackMessage = "낭독 스트림을 열 수 없습니다. ElevenLabs 설정을 확인해 주십시오.";
+
+        window.setTimeout(() => {
+          fetch(`/archive/api/tts/?error=1&t=${Date.now()}`, { credentials: "same-origin" })
+            .then(res => res.json())
+            .then(data => {
+              if (data.message) {
+                appendLine("bbs-system", "TTS", data.message);
+                return;
+              }
+
+              fetch(`/archive/api/tts/?diagnose=1&t=${Date.now()}`, { credentials: "same-origin" })
+                .then(res => res.json())
+                .then(diagnoseData => {
+                  appendLine("bbs-system", "TTS", diagnoseData.message || fallbackMessage);
+                })
+                .catch(error => {
+                  console.error("TTS diagnose failed:", error);
+                  appendLine("bbs-system", "TTS", fallbackMessage);
+                });
+            })
+            .catch(error => {
+              console.error("TTS error lookup failed:", error);
+              appendLine("bbs-system", "TTS", fallbackMessage);
+            });
+        }, 400);
+      }
+
+      function startTtsStream() {
+        stopTts(false, false);
+        startYoutubeBgm();
+        appendLine("bbs-system", "TTS", "낭독 스트림을 여는 중...");
+        currentAudio = new Audio(`/archive/api/tts/?t=${Date.now()}`);
+        currentAudio.preload = "auto";
+        let playbackFailed = false;
+        currentAudio.onplaying = () => {
+          appendLine("bbs-system", "TTS", "기록 낭독을 시작합니다.");
+        };
+        currentAudio.onended = () => {
+          stopTts();
+        };
+        currentAudio.onerror = () => {
+          playbackFailed = true;
+          stopTts();
+          showTtsFailure();
+        };
+
+        currentAudio.play().catch(error => {
+          console.error("TTS playback error:", error);
+          if (playbackFailed) {
+            return;
+          }
+
+          stopTts();
+          appendLine("bbs-system", "TTS", "브라우저가 낭독 재생을 시작하지 못했습니다.");
+        });
+      }
+
+      function rewriteSelectedRecord(item, selectionMessage = "") {
+        const query = selectionMessage || lastArchiveQuery || item.name;
+        const rewriteUrl = `/archive/api/rewrite/?type=${encodeURIComponent(item.type)}&id=${encodeURIComponent(item.id)}&q=${encodeURIComponent(query)}`;
+
+        stopTts();
+        window.lastViewedRecord = item;
+        appendLine("bbs-system", "DECRYPT", `[봉인 해제] ${item.name} (${item.type})`);
+        appendLine("bbs-bot", "연관 지역", item.regions.join(", "));
+        appendLine("bbs-system", "SYS", "선택한 기록을 다시 엮는 중...");
+
+        fetch(rewriteUrl)
+          .then(res => res.json())
+          .then(data => {
+            if (data.llm_response) {
+              appendParagraphs("bbs-bot", "기록 열람실", data.llm_response);
+            } else {
+              appendLine("bbs-bot", "기록 열람실", "기록의 문장이 아직 풀리지 않았습니다. 다시 시도해 주십시오.");
+            }
+
+            if (data.status === "success") {
+              appendLine("bbs-system", "COMMAND", "보관은 '저장', 낭독은 '읽어줘', 중지는 '멈춰'를 입력하십시오.");
+            }
+          })
+          .catch(err => {
+            console.error("Rewrite API error:", err);
+            appendLine("bbs-system", "ERROR", "선택한 기록을 다시 엮는 중 오류가 발생했습니다.");
+          });
+      }
+
       function answer(message) {
         appendLine("bbs-user", "방문자", message);
 
@@ -125,7 +383,7 @@
               'X-CSRFToken': csrftoken
             },
             body: JSON.stringify({
-              horror_id: window.lastViewedRecord.id,
+              horror_id: String(window.lastViewedRecord.id),
               horror_title: window.lastViewedRecord.name,
               horror_type: window.lastViewedRecord.type
             })
@@ -147,28 +405,63 @@
           return;
         }
 
+        if (isTtsStopCommand(message)) {
+          stopTts(true);
+          return;
+        }
+
+        const selectedRecord = findSelectedRecord(message);
+        if (selectedRecord && selectedRecord.ambiguous) {
+          appendLine("bbs-bot", "기록 열람실", "그 말은 둘 이상의 기록에 걸쳐 있습니다. 제목을 조금 더 그대로 불러 주십시오.");
+          return;
+        }
+
+        if (selectedRecord) {
+          rewriteSelectedRecord(selectedRecord, message);
+          return;
+        }
+
         // Check if message is a numeric selection for previous search results
         const numVal = parseInt(message, 10);
         if (!isNaN(numVal) && currentSearchResults.length > 0) {
           const index = numVal - 1;
           if (index >= 0 && index < currentSearchResults.length) {
             const item = currentSearchResults[index];
-            window.lastViewedRecord = item; // Store in global window namespace to support saving
-            appendLine("bbs-system", "DECRYPT", `[봉인 해제] ${item.name} (${item.type})`);
-            appendLine("bbs-bot", "연관 지역", item.regions.join(", "));
-            appendParagraphs("bbs-bot", "기록 본문", item.body);
-            appendLine("bbs-system", "COMMAND", "이 기록을 나의 보관함에 저장하려면 '저장' 또는 'save'를 입력하십시오.");
+            rewriteSelectedRecord(item);
             return;
           }
         }
 
         // Call the API endpoint
-        appendLine("bbs-system", "SYS", "실록 데이터베이스 탐색 중...");
+        const isTtsRequest = isTtsStartCommand(message);
+        stopTts();
+        if (isTtsRequest) {
+          startYoutubeBgm();
+        }
+
+        appendLine(
+          "bbs-system",
+          "SYS",
+          isTtsRequest ? "기록 낭독 요청을 확인하는 중..." : "기록 열람실이 응답을 고르는 중..."
+        );
         fetch(`/archive/api/search/?q=${encodeURIComponent(message)}`)
           .then(res => res.json())
           .then(data => {
+            if (data.intent === "tts_request") {
+              if (data.llm_response) {
+                appendParagraphs("bbs-bot", "기록 열람실", data.llm_response);
+              }
+
+              if (data.status === "tts_ready" && data.has_tts_text) {
+                startTtsStream();
+              }
+
+              return;
+            }
+
             if (data.status === 'success' && data.results.length > 0) {
               currentSearchResults = data.results;
+              lastArchiveQuery = data.query || message;
               
               // Conversational summary from LLM
               if (data.llm_response) {
@@ -177,7 +470,7 @@
                 appendLine("bbs-bot", "기록 열람실", `'${message}' 관련 기록을 총 ${data.results.length}건 찾았습니다.`);
               }
               
-              appendLine("bbs-system", "INDEX", "번호를 입력하면 상세 기록의 봉인을 해제합니다.");
+              appendLine("bbs-system", "INDEX", "기록 제목을 문장 안에 섞어 말하면 봉인이 해제됩니다. 번호도 통합니다.");
               
               data.results.forEach((item, idx) => {
                 const num = String(idx + 1).padStart(3, "0");
@@ -188,6 +481,7 @@
                 );
               });
             } else {
+              currentSearchResults = [];
               if (data.llm_response) {
                 appendParagraphs("bbs-bot", "기록 열람실", data.llm_response);
               } else {

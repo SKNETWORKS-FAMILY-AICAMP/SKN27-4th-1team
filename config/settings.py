@@ -129,6 +129,8 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
