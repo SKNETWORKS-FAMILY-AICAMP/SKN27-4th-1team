@@ -9,7 +9,7 @@
 | 파일 | 설명 | 건수 |
 |---|---|---|
 | `verified_korean_horror_master.json` | 나무위키 한국 괴담/도시전설 | 325건 |
-| `ultimate_global_mythology_1000.json` | 나무위키 전세계 요괴/신화 | 700건 |
+| `ultimate_global_mythology_1000.json` | 나무위키 전세계 요괴/신화 (게임/무기 항목 제거) | 604건 |
 | `dcinside_horror_filtered.json` | DC인사이드 공포갤 크롤링 (전처리 완료) | 2,204건 |
 | `preprocessed_scp.json` | ko.scp-wiki.net 한국어 크롤링 | 2,198건 |
 | `misin.json` | 한국 미신/금기 | 214건 |
@@ -83,34 +83,6 @@ python manage.py runserver
 
 ---
 
-## 데이터 재수집이 필요한 경우
-
-### SCP 재크롤링
-
-```bash
-# 크롤링 (시간 소요: 약 1시간)
-python src/crawling/crawl_scp.py
-
-# 전처리 (korean_name 정리, object_class 정규화)
-python src/crawling/clean_scp.py
-```
-
-### DC인사이드 재필터링
-
-```bash
-python src/crawling/filter_dcinside.py
-```
-
-### 나무위키 재추출
-
-나무위키 parquet 파일(2.8GB)이 필요합니다.
-
-```bash
-# parquet 다운로드 후 추출
-python src/crawling/namuwiki_extractor.py
-```
-
----
 
 ## 전체 초기화 (DB 날리고 다시 시작)
 
