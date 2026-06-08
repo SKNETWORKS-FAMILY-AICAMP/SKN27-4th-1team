@@ -1,10 +1,10 @@
 import json
-import re
 from typing import Any, Literal, Optional, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
 from archive.models import HorrorStory, MythEntity, Superstition
+from archive.services.keyword_extractor import extract_fallback_keywords, extract_keywords
 from archive.services.prompt import (
     build_evaluation_prompt,
     build_generation_prompt,
@@ -71,7 +71,7 @@ def run_archive_chatbot(
         }
 
     keywords = extract_keywords(cleaned_question)
-    search_results = search_archive_records_by_keywords(keywords)
+    search_results = search_archive_records_for_question(cleaned_question, keywords)
     if search_results:
         choice_prompt = build_search_choice_prompt(
             question=cleaned_question,
@@ -348,7 +348,7 @@ def search_node(state: ArchiveState) -> dict[str, Any]:
     """질문에서 키워드를 뽑고 DB에서 가장 관련 있는 원본 기록을 찾는다."""
     question = state.get("question", "")
     keywords = extract_keywords(question)
-    search_results = search_archive_records_by_keywords(keywords)
+    search_results = search_archive_records_for_question(question, keywords)
 
     source_story = {}
     if search_results:
@@ -461,41 +461,30 @@ def decide_next_node(state: ArchiveState) -> Literal["revise", "finish"]:
     return "revise"
 
 
-def extract_keywords(question: str, limit: int = 6) -> list[str]:
-    """질문에서 검색에 사용할 핵심 키워드를 간단한 규칙으로 추출한다."""
-    stopwords = {
-        "괴담",
-        "조회",
-        "검색",
-        "관련",
-        "대해",
-        "대한",
-        "알려줘",
-        "찾아줘",
-        "있어",
-        "이야기",
-        "기록",
-    }
-    tokens = re.findall(r"[가-힣A-Za-z0-9]+", question)
-    keywords = []
-    for token in tokens:
-        cleaned_token = token.strip()
-        if len(cleaned_token) < 2:
-            continue
+def search_archive_records_for_question(
+    question: str,
+    keywords: list[str],
+    limit: int = 5,
+    body_limit: int = 1800,
+) -> list[dict[str, Any]]:
+    """정제 키워드 검색 후 결과가 없으면 원문 토큰으로 한 번 더 검색한다."""
+    search_results = search_archive_records_by_keywords(
+        keywords,
+        limit=limit,
+        body_limit=body_limit,
+    )
+    if search_results:
+        return search_results
 
-        if cleaned_token in stopwords:
-            continue
+    fallback_keywords = extract_fallback_keywords(question, keywords)
+    if not fallback_keywords:
+        return []
 
-        if cleaned_token not in keywords:
-            keywords.append(cleaned_token)
-
-        if len(keywords) >= limit:
-            break
-
-    if keywords:
-        return keywords
-
-    return [question]
+    return search_archive_records_by_keywords(
+        fallback_keywords,
+        limit=limit,
+        body_limit=body_limit,
+    )
 
 
 def search_archive_records_by_keywords(
@@ -699,9 +688,14 @@ def clean_regions(*values: Any) -> list[str]:
 
 def score_record_text(keywords: list[str], *values: Any) -> int:
     """검색 결과 정렬을 위해 키워드 등장 횟수 기반 점수를 계산한다."""
-    text = " ".join(str(value).lower() for value in values if value)
     score = 0
-    for keyword in keywords:
-        score += text.count(keyword.lower())
+    for index, value in enumerate(values):
+        text = str(value).lower() if value else ""
+        if not text:
+            continue
+
+        weight = 4 if index == 0 else 1
+        for keyword in keywords:
+            score += text.count(keyword.lower()) * weight
 
     return score
