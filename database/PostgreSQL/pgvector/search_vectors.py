@@ -4,7 +4,7 @@
 
     python database/PostgreSQL/pgvector/search_vectors.py "폐교 음악실 소리"
 
-검색어를 embed_records.py와 같은 KURE-v1 임베딩 모델로 임베딩한 뒤,
+검색어를 embed_records.py와 같은 multilingual-e5-base 모델로 임베딩한 뒤,
 record_embeddings.embedding 컬럼과 cosine distance를 비교해 가까운 청크를 출력한다.
 """
 
@@ -39,8 +39,8 @@ from django.db import connection  # noqa: E402
 
 from embed_records import (  # noqa: E402
     DEFAULT_MODEL_NAME,
+    DEFAULT_OUTPUT_DIMENSION,
     SOURCE_CHOICES,
-    get_hf_token,
     vector_to_sql_literal,
 )
 
@@ -84,6 +84,12 @@ def parse_args() -> argparse.Namespace:
         help=f"검색어 임베딩에 사용할 모델. 기본값은 {DEFAULT_MODEL_NAME}.",
     )
     parser.add_argument(
+        "--output-dimension",
+        type=int,
+        default=DEFAULT_OUTPUT_DIMENSION,
+        help=f"임베딩 출력 차원 확인용 값. 기본값은 {DEFAULT_OUTPUT_DIMENSION}.",
+    )
+    parser.add_argument(
         "--preview-length",
         type=int,
         default=180,
@@ -92,20 +98,25 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def embed_query(query: str, model_name: str) -> list[float]:
-    """검색어를 pgvector 검색에 사용할 1024차원 벡터로 변환한다."""
+def embed_query(query: str, model_name: str, output_dimension: int) -> list[float]:
+    """검색어를 pgvector 검색에 사용할 768차원 벡터로 변환한다."""
 
     from sentence_transformers import SentenceTransformer
 
-    model = SentenceTransformer(model_name, token=get_hf_token())
+    model = SentenceTransformer(model_name)
 
-    # 저장된 본문 임베딩과 같은 KURE-v1 모델과 정규화 옵션으로 검색어도 벡터화한다.
+    # e5 계열은 검색어에는 query prefix를, 저장 문서에는 passage prefix를 권장한다.
     vector = model.encode(
-        query,
+        f"query: {query}",
         normalize_embeddings=True,
         show_progress_bar=False,
     )
-    return [float(value) for value in vector.tolist()]
+    values = [float(value) for value in vector.tolist()]
+    if len(values) != output_dimension:
+        raise ValueError(
+            f"임베딩 차원 불일치: expected={output_dimension}, actual={len(values)}"
+        )
+    return values
 
 
 def search_embeddings(
@@ -187,8 +198,10 @@ def main() -> None:
         raise ValueError("top-k는 1 이상이어야 한다.")
     if args.preview_length <= 0:
         raise ValueError("preview-length는 1 이상이어야 한다.")
+    if args.output_dimension <= 0:
+        raise ValueError("output-dimension은 1 이상이어야 한다.")
 
-    query_vector = embed_query(args.query, args.model)
+    query_vector = embed_query(args.query, args.model, args.output_dimension)
     results = search_embeddings(
         query_vector=query_vector,
         source=args.source,

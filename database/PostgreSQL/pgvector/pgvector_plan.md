@@ -85,7 +85,7 @@ record_embeddings
 | `chunk_index` | integer | 같은 원본 row 안에서 몇 번째 chunk인지 |
 | `title` | text | 검색 결과 표시용 제목 |
 | `content` | text | 실제 임베딩한 chunk 텍스트 |
-| `embedding` | vector(1024) | 임베딩 벡터 |
+| `embedding` | vector(768) | 임베딩 벡터 |
 | `metadata` | jsonb | 원본 카테고리, 지역, URL 등 부가 정보 |
 | `created_at` | timestamptz | 생성 시각 |
 | `updated_at` | timestamptz | 갱신 시각 |
@@ -98,25 +98,26 @@ UNIQUE (source_table, source_id, chunk_index)
 
 ## 임베딩 모델 기준
 
-한국어 검색 품질과 팀원 재현성을 우선해 Hugging Face의 KURE-v1 임베딩 모델을 사용한다.
+API 쿼터 문제를 피하고 로컬에서 안정적으로 실행하기 위해 multilingual-e5-base 임베딩 모델을 사용한다.
 
 ```text
-nlpai-lab/KURE-v1
+intfloat/multilingual-e5-base
 ```
 
-이 모델의 임베딩 차원은 1024이다.
+이 모델의 임베딩 차원은 768이다.
 
 따라서 pgvector 컬럼은 아래처럼 잡는다.
 
 ```sql
-embedding vector(1024)
+embedding vector(768)
 ```
 
 장점:
 
-- 한국어 검색에 특화된 공개 임베딩 모델을 사용할 수 있다.
+- 다국어 검색용 모델이라 한국어 유사도 검색에도 사용할 수 있다.
+- 외부 API 쿼터 제한 없이 로컬에서 실행할 수 있다.
 - `sentence-transformers`로 바로 로딩할 수 있어 코드가 단순하다.
-- Hugging Face 토큰만 준비하면 팀원들도 같은 모델 기준으로 재현할 수 있다.
+- 768차원이라 1024차원 모델보다 저장공간과 검색 부담이 줄어든다.
 
 
 ## 청크 기준
@@ -268,7 +269,7 @@ horror_stories:
 모델:
 
 ```text
-nlpai-lab/KURE-v1
+intfloat/multilingual-e5-base
 ```
 
 실행 방식:
@@ -276,6 +277,7 @@ nlpai-lab/KURE-v1
 - 한 번에 전체를 처리하지 않는다.
 - batch 단위로 처리한다.
 - 이미 저장된 `(source_table, source_id, chunk_index)`는 upsert한다.
+- e5 계열 권장 방식에 맞춰 문서에는 `passage:` prefix, 검색어에는 `query:` prefix를 붙인다.
 
 ### 7단계. 유사도 검색 SQL 작성
 
@@ -362,7 +364,7 @@ docker compose ps
 Get-Content database\PostgreSQL\pgvector\schema_pgvector.sql | docker compose exec -T postgres psql -U postgres -d goei_sillok
 
 # 임베딩 적재
-python database\PostgreSQL\pgvector\embed_records.py
+python database\PostgreSQL\pgvector\embed_records.py --reset
 
 # 검색 테스트
 python database\PostgreSQL\pgvector\search_vectors.py "폐교 음악실 귀신"
@@ -376,7 +378,7 @@ python database\PostgreSQL\pgvector\search_vectors.py "폐교 음악실 귀신"
 | 임베딩 테이블 관리 | Django 모델 vs SQL 전용 | 초기에는 SQL 전용 권장 |
 | 임베딩 대상 | 원천 2종만 vs `post_post` 포함 | 1차 `horror_stories`, `myth_entities`, 2차 `post_post` |
 | 청크 방식 | 글자 수 기준 vs 문장/문단 기준 | 문장/문단 기준 |
-| 임베딩 모델 | MiniLM 384차원 vs Ollama qwen3 1024차원 vs Gemini 768차원 vs KURE-v1 1024차원 | Hugging Face `nlpai-lab/KURE-v1` 사용 |
+| 임베딩 모델 | MiniLM 384차원 vs Ollama qwen3 1024차원 vs Gemini 768/1024차원 vs KURE-v1 1024차원 vs e5-base 768차원 | `intfloat/multilingual-e5-base` 사용 |
 | 화면 연결 | 기록 열람실 검색 vs 별도 테스트 API | 먼저 스크립트 검색 테스트 |
 
 

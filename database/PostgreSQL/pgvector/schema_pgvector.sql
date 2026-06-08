@@ -1,6 +1,6 @@
 -- pgvector schema for semantic search.
--- Embedding model: nlpai-lab/KURE-v1 via Hugging Face sentence-transformers
--- Vector dimension: 1024
+-- Embedding model: intfloat/multilingual-e5-base via sentence-transformers
+-- Vector dimension: 768
 -- Run from project root:
 -- Get-Content database\PostgreSQL\pgvector\schema_pgvector.sql | docker compose exec -T postgres psql -U postgres -d goei_sillok
 
@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS record_embeddings (
     chunk_index INTEGER NOT NULL DEFAULT 0,
     title TEXT NOT NULL DEFAULT '',
     content TEXT NOT NULL,
-    embedding vector(1024) NOT NULL,
+    embedding vector(768) NOT NULL,
     metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

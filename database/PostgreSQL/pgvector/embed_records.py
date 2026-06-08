@@ -5,8 +5,8 @@
     python database/PostgreSQL/pgvector/embed_records.py
 
 기본 대상 테이블은 horror_stories, myth_entities 이다.
-각 레코드는 semantic_chunker.py로 청크 분리한 뒤 KURE-v1 임베딩 모델로
-1024차원 벡터를 만들고 record_embeddings 테이블에 upsert 한다.
+각 레코드는 semantic_chunker.py로 청크 분리한 뒤 multilingual-e5-base 모델로
+768차원 벡터를 만들고 record_embeddings 테이블에 upsert 한다.
 """
 
 from __future__ import annotations
@@ -44,13 +44,13 @@ from archive.models import HorrorStory, MythEntity  # noqa: E402
 from semantic_chunker import chunk_record  # noqa: E402
 
 
-DEFAULT_MODEL_NAME = "nlpai-lab/KURE-v1"
+DEFAULT_MODEL_NAME = "intfloat/multilingual-e5-base"
+DEFAULT_OUTPUT_DIMENSION = 768
 DEFAULT_BATCH_SIZE = 32
 SOURCE_ALL = "all"
 SOURCE_HORROR = "horror_stories"
 SOURCE_MYTH = "myth_entities"
 SOURCE_CHOICES = (SOURCE_ALL, SOURCE_HORROR, SOURCE_MYTH)
-HF_TOKEN_ENV_NAMES = ("HF_TOKEN", "HUGGINGFACEHUB_API_TOKEN", "HUGGINGFACE_HUB_TOKEN")
 
 
 @dataclass(frozen=True)
@@ -91,6 +91,12 @@ def parse_args() -> argparse.Namespace:
         "--model",
         default=DEFAULT_MODEL_NAME,
         help=f"사용할 sentence-transformers 임베딩 모델. 기본값은 {DEFAULT_MODEL_NAME}.",
+    )
+    parser.add_argument(
+        "--output-dimension",
+        type=int,
+        default=DEFAULT_OUTPUT_DIMENSION,
+        help=f"임베딩 출력 차원 확인용 값. 기본값은 {DEFAULT_OUTPUT_DIMENSION}.",
     )
     parser.add_argument(
         "--batch-size",
@@ -233,11 +239,19 @@ def build_embedding_rows(
         for chunk in chunks:
             pending.append((record, chunk))
             if len(pending) >= batch_size:
-                processed_chunks += flush_batch(pending, model, batch_size)
+                processed_chunks += flush_batch(
+                    pending,
+                    model,
+                    batch_size=batch_size,
+                )
                 pending.clear()
 
     if pending and not dry_run:
-        processed_chunks += flush_batch(pending, model, batch_size)
+        processed_chunks += flush_batch(
+            pending,
+            model,
+            batch_size=batch_size,
+        )
         pending.clear()
 
     return processed_records, processed_chunks
@@ -265,10 +279,11 @@ def flush_batch(
 
     texts = [str(chunk["content"]) for _, chunk in pending]
 
-    # KURE-v1은 sentence-transformers 모델이므로 문서 목록을 한 번에 encode한다.
-    # 저장과 검색 모두 같은 모델과 정규화 옵션을 써야 cosine distance 비교가 의미 있다.
+    # e5 계열은 검색 품질을 위해 query/passage prefix를 권장한다.
+    # 저장 대상 문서는 passage prefix를 붙여 같은 모델 기준으로 정규화한다.
+    prefixed_texts = [f"passage: {text}" for text in texts]
     vectors = model.encode(
-        texts,
+        prefixed_texts,
         batch_size=batch_size,
         normalize_embeddings=True,
         show_progress_bar=False,
@@ -339,16 +354,6 @@ def vector_to_sql_literal(vector: list[float]) -> str:
     return "[" + ",".join(f"{value:.8f}" for value in vector) + "]"
 
 
-def get_hf_token() -> str | None:
-    """환경변수에 저장된 Hugging Face 토큰을 찾아 반환한다."""
-
-    for env_name in HF_TOKEN_ENV_NAMES:
-        token = os.environ.get(env_name)
-        if token:
-            return token
-    return None
-
-
 def main() -> None:
     args = parse_args()
 
@@ -356,6 +361,8 @@ def main() -> None:
         raise ValueError("batch-size는 1 이상이어야 한다.")
     if args.limit is not None and args.limit <= 0:
         raise ValueError("limit은 1 이상이어야 한다.")
+    if args.output_dimension <= 0:
+        raise ValueError("output-dimension은 1 이상이어야 한다.")
 
     if args.reset and not args.dry_run:
         reset_embeddings(args.source)
@@ -366,9 +373,8 @@ def main() -> None:
     else:
         from sentence_transformers import SentenceTransformer
 
-        token = get_hf_token()
-        print(f"임베딩 모델 로딩 중: {args.model}")
-        model = SentenceTransformer(args.model, token=token)
+        print(f"임베딩 모델 로딩 중: {args.model}, expected_dimension={args.output_dimension}")
+        model = SentenceTransformer(args.model)
 
     records = iter_records(args.source, limit=args.limit)
     record_count, chunk_count = build_embedding_rows(
