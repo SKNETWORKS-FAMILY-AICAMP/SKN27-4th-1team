@@ -59,10 +59,11 @@ PostgreSQL에 저장된 괴담/괴이/금기/게시글 텍스트를 임베딩 �
 | --- | --- | --- |
 | `horror_stories` | `title`, `region`, `category`, `preview`, `content` | 높음 |
 | `myth_entities` | `name`, `origin`, `description`, `behavior`, `weakness`, `history`, `signs`, `survival_rules` | 중간 |
-| `superstitions` | `content`, `category`, `region` | 낮음 |
 | `post_post` | `title`, `region`, `body`, `category` | 글 길이에 따라 다름 |
 
-초기 MVP에서는 `horror_stories`, `myth_entities`, `superstitions`를 먼저 임베딩한다.
+초기 MVP에서는 `horror_stories`, `myth_entities`를 먼저 임베딩한다.
+
+`superstitions`는 현재 검색 대상에서 제외하기로 했으므로 pgvector 임베딩을 만들지 않는다.
 
 `post_post`는 사용자가 계속 작성/수정/삭제하는 데이터이므로, 2차 단계에서 연결한다.
 
@@ -84,7 +85,7 @@ record_embeddings
 | `chunk_index` | integer | 같은 원본 row 안에서 몇 번째 chunk인지 |
 | `title` | text | 검색 결과 표시용 제목 |
 | `content` | text | 실제 임베딩한 chunk 텍스트 |
-| `embedding` | vector(384) | 임베딩 벡터 |
+| `embedding` | vector(1024) | 임베딩 벡터 |
 | `metadata` | jsonb | 원본 카테고리, 지역, URL 등 부가 정보 |
 | `created_at` | timestamptz | 생성 시각 |
 | `updated_at` | timestamptz | 갱신 시각 |
@@ -97,25 +98,26 @@ UNIQUE (source_table, source_id, chunk_index)
 
 ## 임베딩 모델 기준
 
-프로젝트의 Neo4j 임베딩 스크립트가 이미 아래 모델을 사용한다.
+한국어 검색 품질과 팀원 재현성을 우선해 Hugging Face의 KURE-v1 임베딩 모델을 사용한다.
 
 ```text
-sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
+nlpai-lab/KURE-v1
 ```
 
-이 모델의 임베딩 차원은 384이다.
+이 모델의 임베딩 차원은 1024이다.
 
-따라서 pgvector 컬럼은 우선 아래처럼 잡는다.
+따라서 pgvector 컬럼은 아래처럼 잡는다.
 
 ```sql
-embedding vector(384)
+embedding vector(1024)
 ```
 
 장점:
 
-- 한국어/영어 혼합 데이터에 사용 가능
-- 이미 프로젝트 requirements에 `sentence-transformers`가 있다
-- Neo4j 임베딩과 모델 기준을 맞출 수 있다
+- 한국어 검색에 특화된 공개 임베딩 모델을 사용할 수 있다.
+- `sentence-transformers`로 바로 로딩할 수 있어 코드가 단순하다.
+- Hugging Face 토큰만 준비하면 팀원들도 같은 모델 기준으로 재현할 수 있다.
+
 
 ## 청크 기준
 
@@ -250,7 +252,6 @@ overlap
 ```text
 horror_stories
 myth_entities
-superstitions
 ```
 
 각 테이블별로 임베딩할 텍스트 조합을 정한다.
@@ -267,7 +268,7 @@ horror_stories:
 모델:
 
 ```text
-sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
+nlpai-lab/KURE-v1
 ```
 
 실행 방식:
@@ -312,7 +313,7 @@ LIMIT 10;
 - 검색 결과가 의미상 비슷한가
 - 너무 긴 chunk가 그대로 노출되지 않는가
 - 같은 원본 row의 chunk가 과도하게 많이 뜨지 않는가
-- `horror_stories`, `myth_entities`, `superstitions`가 골고루 검색되는가
+- `horror_stories`, `myth_entities`가 의미에 맞게 검색되는가
 
 ### 9단계. Django 서비스 연결
 
@@ -373,10 +374,11 @@ python database\PostgreSQL\pgvector\search_vectors.py "폐교 음악실 귀신"
 | --- | --- | --- |
 | PostgreSQL 이미지 | `postgres:16` 유지 vs `pgvector/pgvector:pg16` 변경 | pgvector 이미지 권장 |
 | 임베딩 테이블 관리 | Django 모델 vs SQL 전용 | 초기에는 SQL 전용 권장 |
-| 임베딩 대상 | 원천 3종만 vs `post_post` 포함 | 1차 원천 3종, 2차 `post_post` |
+| 임베딩 대상 | 원천 2종만 vs `post_post` 포함 | 1차 `horror_stories`, `myth_entities`, 2차 `post_post` |
 | 청크 방식 | 글자 수 기준 vs 문장/문단 기준 | 문장/문단 기준 |
-| 임베딩 모델 | MiniLM 384차원 vs Ollama/OpenAI | MiniLM 384차원 우선 |
+| 임베딩 모델 | MiniLM 384차원 vs Ollama qwen3 1024차원 vs Gemini 768차원 vs KURE-v1 1024차원 | Hugging Face `nlpai-lab/KURE-v1` 사용 |
 | 화면 연결 | 기록 열람실 검색 vs 별도 테스트 API | 먼저 스크립트 검색 테스트 |
+
 
 ## 주의 사항
 
@@ -386,4 +388,3 @@ python database\PostgreSQL\pgvector\search_vectors.py "폐교 음악실 귀신"
 - 원본 테이블의 본문을 직접 수정하지 않는다.
 - Neo4j 임베딩과 PostgreSQL pgvector 임베딩은 역할이 다르다.
 - 대량 임베딩은 시간이 걸릴 수 있으므로 batch 처리와 재실행 가능 구조가 필요하다.
-
