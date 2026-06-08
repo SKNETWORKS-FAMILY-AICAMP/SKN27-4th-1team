@@ -54,6 +54,7 @@
       }
 
       function typeNextLetter() {
+        prompt.classList.remove("login-prompt-static");
         prompt.textContent = message.slice(0, index);
         index += 1;
 
@@ -80,9 +81,11 @@
         const password = form.querySelector('[name="password"]').value.trim();
         if (!username || !password) {
           event.preventDefault();
+          prompt.classList.add("login-prompt-static");
           prompt.textContent = "아이디와 비밀번호를 입력하십시오.";
           return;
         }
+        prompt.classList.add("login-prompt-static");
         prompt.textContent = "로그인 기록을 대조하는 중...";
       });
 

@@ -1346,6 +1346,10 @@ body.bbs-factory-page {
   animation: blink 1s steps(1) infinite;
 }
 
+.login-prompt.login-prompt-static::after {
+  display: none;
+}
+
 .login-form {
   display: grid;
   gap: 12px;
