@@ -12,6 +12,15 @@ from archive.services.prompt import (
     build_revision_prompt,
     build_search_choice_prompt,
 )
+from archive.services.search_policy import (
+    SIMPLE_GENERAL_CHAT_MESSAGES,
+    SINGLE_KEYWORD_WEAK_MATCH_COUNTS,
+)
+from archive.services.search_relevance import (
+    is_generic_record_name,
+    is_relevant_record,
+    score_record_text,
+)
 from common.llm_factory import get_llm
 
 
@@ -70,6 +79,9 @@ def run_archive_chatbot(
             "revised": False,
         }
 
+    if intent == "general_chat" and is_simple_general_chat(cleaned_question):
+        return run_archive_graph_response(cleaned_question, conversation_history)
+
     keywords = extract_keywords(cleaned_question)
     search_results = search_archive_records_for_question(cleaned_question, keywords)
     if search_results:
@@ -107,13 +119,20 @@ def run_archive_chatbot(
             "revised": False,
         }
 
+    return run_archive_graph_response(cleaned_question, conversation_history)
+
+
+def run_archive_graph_response(
+    cleaned_question: str,
+    conversation_history: Optional[list[dict[str, str]]] = None,
+) -> dict[str, Any]:
+    """검색 우선 처리 없이 LangGraph 분류 결과에 따른 응답을 만든다."""
     archive_graph = build_archive_graph()
     final_state = archive_graph.invoke({
         "question": cleaned_question,
         "conversation_history": conversation_history or [],
         "revise_count": 0,
     })
-
     return {
         "status": final_state.get("status", "success"),
         "query": cleaned_question,
@@ -126,6 +145,16 @@ def run_archive_chatbot(
         "is_passed": final_state.get("is_passed", False),
         "revised": final_state.get("revise_count", 0) > 0,
     }
+
+
+def is_simple_general_chat(question: str) -> bool:
+    """짧은 인사/감사처럼 검색보다 대화로 보는 입력인지 확인한다."""
+    return normalize_simple_chat_message(question) in SIMPLE_GENERAL_CHAT_MESSAGES
+
+
+def normalize_simple_chat_message(value: str) -> str:
+    """문장부호와 공백을 제외해 짧은 일반대화 매칭을 안정화한다."""
+    return "".join(char for char in value.lower().strip() if char.isalnum())
 
 
 def run_archive_record_chatbot(
@@ -524,18 +553,35 @@ def search_archive_records_by_keywords(
             | Superstition.objects.filter(region__icontains=keyword)
         )
 
-    for story in story_queryset.distinct()[: limit * 2]:
+    for story in story_queryset.distinct()[: limit * 3]:
         body = make_preview(story.preview, story.content, limit=body_limit)
+        if is_generic_record_name(story.title, keywords):
+            continue
+
+        if not is_relevant_record(
+            keywords,
+            strong_values=[story.title, story.region, story.category],
+            weak_values=[story.content],
+            single_keyword_weak_match_count=SINGLE_KEYWORD_WEAK_MATCH_COUNTS["horror_story"],
+        ):
+            continue
+
         records.append({
             "id": story.id,
             "name": story.title,
             "body": body,
             "regions": clean_regions(story.region),
             "type": "horror_story",
-            "score": score_record_text(keywords, story.title, body, story.region, story.category),
+            "score": score_record_text(
+                keywords,
+                story.title,
+                story.region,
+                story.category,
+                story.content,
+            ),
         })
 
-    for entity in entity_queryset.distinct()[: limit * 2]:
+    for entity in entity_queryset.distinct()[: limit * 3]:
         body = make_preview(
             entity.description,
             entity.behavior,
@@ -545,17 +591,49 @@ def search_archive_records_by_keywords(
             "\n".join(entity.survival_rules or []),
             limit=body_limit,
         )
+        if not is_relevant_record(
+            keywords,
+            strong_values=[entity.name, entity.origin, entity.signs],
+            weak_values=[
+                entity.description,
+                entity.behavior,
+                entity.weakness,
+                entity.history,
+                "\n".join(entity.survival_rules or []),
+            ],
+            single_keyword_weak_match_count=SINGLE_KEYWORD_WEAK_MATCH_COUNTS["myth_entity"],
+        ):
+            continue
+
         records.append({
             "id": entity.id,
             "name": entity.name,
             "body": body,
             "regions": clean_regions(entity.origin),
             "type": "myth_entity",
-            "score": score_record_text(keywords, entity.name, body, entity.origin),
+            "score": score_record_text(
+                keywords,
+                entity.name,
+                entity.origin,
+                entity.signs,
+                entity.description,
+                entity.behavior,
+                entity.weakness,
+                entity.history,
+                "\n".join(entity.survival_rules or []),
+            ),
         })
 
-    for superstition in superstition_queryset.distinct()[: limit * 2]:
+    for superstition in superstition_queryset.distinct()[: limit * 3]:
         body = make_preview(superstition.content, limit=body_limit)
+        if not is_relevant_record(
+            keywords,
+            strong_values=[superstition.region, superstition.category],
+            weak_values=[superstition.content],
+            single_keyword_weak_match_count=SINGLE_KEYWORD_WEAK_MATCH_COUNTS["superstition"],
+        ):
+            continue
+
         records.append({
             "id": superstition.id,
             "name": superstition.content[:50],
@@ -685,17 +763,3 @@ def clean_regions(*values: Any) -> list[str]:
     """빈 지역값을 제거하고 화면 표시용 지역 목록을 만든다."""
     return [str(value).strip() for value in values if str(value).strip()]
 
-
-def score_record_text(keywords: list[str], *values: Any) -> int:
-    """검색 결과 정렬을 위해 키워드 등장 횟수 기반 점수를 계산한다."""
-    score = 0
-    for index, value in enumerate(values):
-        text = str(value).lower() if value else ""
-        if not text:
-            continue
-
-        weight = 4 if index == 0 else 1
-        for keyword in keywords:
-            score += text.count(keyword.lower()) * weight
-
-    return score
