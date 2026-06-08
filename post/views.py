@@ -119,6 +119,22 @@ def post_list_api(request):
     })
 
 
+def post_search_api(request):
+    category = request.GET.get('category', 'WITNESS').upper()
+    category = 'CREATION' if category == 'CREATION' else 'WITNESS'
+    query = request.GET.get('q', '').strip()
+    posts = services.search_posts(category=category, keyword=query)
+    data_list = [_post_to_dict(post) for post in posts]
+
+    return JsonResponse({
+        'status': 'success',
+        'query': query,
+        'category': category,
+        'count': len(data_list),
+        'posts': data_list,
+    })
+
+
 def post_create_api(request):
     if not request.user.is_authenticated:
         return JsonResponse({'status': 'error', 'message': '로그인이 필요합니다.', 'redirect': '/accounts/login/'}, status=401)
