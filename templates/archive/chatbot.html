@@ -13,7 +13,7 @@
         <span>archive://goei.sillok/gwan</span>
         <span>기록 열람실</span>
         {% if user.is_authenticated %}
-        <a class="bbs-login" href="{% url 'accounts:logout' %}">LOGOUT</a>
+        <a class="bbs-login" id="archiveLogoutLink" href="{% url 'accounts:logout' %}">LOGOUT</a>
         {% else %}
         <a class="bbs-login" href="{% url 'accounts:login' %}">LOGIN</a>
         {% endif %}
@@ -61,9 +61,11 @@
       const form = document.querySelector("#bbsForm");
       const input = document.querySelector("#bbsInput");
       const log = document.querySelector("#bbsLog");
+      const logoutLink = document.querySelector("#archiveLogoutLink");
       const audioVolumeSettings = JSON.parse(
         document.querySelector("#archiveAudioVolumeSettings").textContent
       );
+      const chatStateStorageKey = `${window.location.pathname}:chatState`;
       const youtubeBgmId = "0br9VKMgdW0";
 
       // Local cache of last search results to handle digit select (e.g. "1", "2")
@@ -72,6 +74,67 @@
       let currentAudio = null;
       let youtubeBgmFrame = null;
       let youtubeBgmReadyTimer = null;
+      let shouldSaveChatState = true;
+
+      function saveChatState() {
+        if (!shouldSaveChatState) {
+          return;
+        }
+
+        const state = {
+          logHtml: log.innerHTML,
+          currentSearchResults,
+          lastArchiveQuery,
+          lastViewedRecord: window.lastViewedRecord || null
+        };
+
+        try {
+          window.sessionStorage.setItem(chatStateStorageKey, JSON.stringify(state));
+        } catch (error) {
+          console.warn("Archive chat state save failed:", error);
+        }
+      }
+
+      function restoreChatState() {
+        let state = null;
+        try {
+          state = JSON.parse(window.sessionStorage.getItem(chatStateStorageKey) || "null");
+        } catch (error) {
+          console.warn("Archive chat state restore failed:", error);
+          window.sessionStorage.removeItem(chatStateStorageKey);
+          return;
+        }
+
+        if (!state) {
+          return;
+        }
+
+        if (typeof state.logHtml === "string" && state.logHtml.trim()) {
+          log.innerHTML = state.logHtml;
+          log.scrollTop = log.scrollHeight;
+        }
+
+        if (Array.isArray(state.currentSearchResults)) {
+          currentSearchResults = state.currentSearchResults;
+        }
+
+        if (typeof state.lastArchiveQuery === "string") {
+          lastArchiveQuery = state.lastArchiveQuery;
+        }
+
+        if (state.lastViewedRecord && typeof state.lastViewedRecord === "object") {
+          window.lastViewedRecord = state.lastViewedRecord;
+        }
+      }
+
+      function clearChatState() {
+        shouldSaveChatState = false;
+        try {
+          window.sessionStorage.removeItem(chatStateStorageKey);
+        } catch (error) {
+          console.warn("Archive chat state clear failed:", error);
+        }
+      }
 
       function getYoutubeBgmVolume() {
         return audioVolumeSettings.bgm;
@@ -98,6 +161,7 @@
         line.append(badge, ` ${message}`);
         log.append(line);
         log.scrollTop = log.scrollHeight;
+        saveChatState();
       }
 
       function appendParagraphs(className, label, text) {
@@ -118,6 +182,7 @@
           }
         });
         log.scrollTop = log.scrollHeight;
+        saveChatState();
       }
 
       // Helper to get CSRF Token
@@ -514,6 +579,12 @@
             console.error("API error:", err);
             appendLine("bbs-system", "ERROR", "데이터베이스 연결에 일시적인 장애가 발생했습니다.");
           });
+      }
+
+      restoreChatState();
+      window.addEventListener("pagehide", saveChatState);
+      if (logoutLink) {
+        logoutLink.addEventListener("click", clearChatState);
       }
 
       if (firstMessage) {
