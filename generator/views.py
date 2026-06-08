@@ -24,7 +24,6 @@ def generate_story_api(request):
         except Exception as e:
             return JsonResponse({
                 "title": "오류 발생", 
-                "content": str(e), 
-                "summary": "서버 오류"
+                "content": str(e)
             }, status=400)
     return JsonResponse({"error": "Invalid method"}, status=405)
