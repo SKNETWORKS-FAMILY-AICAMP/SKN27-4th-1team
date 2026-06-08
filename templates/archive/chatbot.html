@@ -62,6 +62,7 @@
       const input = document.querySelector("#bbsInput");
       const log = document.querySelector("#bbsLog");
       const logoutLink = document.querySelector("#archiveLogoutLink");
+      const isArchiveUserAuthenticated = {{ user.is_authenticated|yesno:"true,false" }};
       const audioVolumeSettings = JSON.parse(
         document.querySelector("#archiveAudioVolumeSettings").textContent
       );
@@ -85,7 +86,8 @@
           logHtml: log.innerHTML,
           currentSearchResults,
           lastArchiveQuery,
-          lastViewedRecord: window.lastViewedRecord || null
+          lastViewedRecord: window.lastViewedRecord || null,
+          wasLoggedIn: isArchiveUserAuthenticated
         };
 
         try {
@@ -101,11 +103,16 @@
           state = JSON.parse(window.sessionStorage.getItem(chatStateStorageKey) || "null");
         } catch (error) {
           console.warn("Archive chat state restore failed:", error);
-          window.sessionStorage.removeItem(chatStateStorageKey);
+          removeStoredChatState();
           return;
         }
 
         if (!state) {
+          return;
+        }
+
+        if (!isArchiveUserAuthenticated && state.wasLoggedIn) {
+          removeStoredChatState();
           return;
         }
 
@@ -129,6 +136,10 @@
 
       function clearChatState() {
         shouldSaveChatState = false;
+        removeStoredChatState();
+      }
+
+      function removeStoredChatState() {
         try {
           window.sessionStorage.removeItem(chatStateStorageKey);
         } catch (error) {
@@ -445,7 +456,7 @@
             }
 
             if (data.status === "success") {
-              appendLine("bbs-system", "COMMAND", "낭독은 '읽어줘', 중지는 '멈춰'를 입력하십시오.");
+              appendLine("bbs-system", "COMMAND", "낭독은 '읽어줘', 멈춤은 '멈춰'로 가능합니다. 다른 질문이나 새 키워드도 그대로 입력하십시오.");
             }
           })
           .catch(err => {
@@ -555,8 +566,6 @@
               } else {
                 appendLine("bbs-bot", "기록 열람실", `'${message}' 관련 기록을 총 ${data.results.length}건 찾았습니다.`);
               }
-              
-              appendLine("bbs-system", "INDEX", "기록 제목을 문장 안에 섞어 말하면 봉인이 해제됩니다. 번호도 통합니다.");
               
               data.results.forEach((item, idx) => {
                 const num = String(idx + 1).padStart(3, "0");

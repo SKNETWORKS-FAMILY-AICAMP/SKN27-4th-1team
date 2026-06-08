@@ -1,12 +1,16 @@
 import json
 from typing import Any, Literal, TypedDict
 
-from archive.services.archive_search import search_archive_records_for_question
+from archive.services.archive_search import (
+    get_random_archive_suggestions,
+    search_archive_records_for_question,
+)
 from archive.services.keyword_extractor import extract_keywords
 from archive.services.prompt import (
     build_evaluation_prompt,
     build_generation_prompt,
     build_general_chat_prompt,
+    build_intent_classification_prompt,
     build_revision_prompt,
     build_search_choice_prompt,
 )
@@ -31,9 +35,19 @@ class ArchiveState(TypedDict, total=False):
 
 
 def intent_node(state: ArchiveState) -> dict[str, Any]:
-    """사용자 입력이 괴담 조회 요청인지 일반 대화인지 분류한다."""
+    """사용자 입력의 의도와 검색 키워드를 분류한다."""
+    if state.get("source_story"):
+        return {
+            "intent": state.get("intent", "archive_query"),
+            "keywords": state.get("keywords", []),
+        }
+
     question = state.get("question", "")
-    return {"intent": classify_intent(question)}
+    classification = classify_intent_and_keywords(
+        question,
+        state.get("conversation_history", []),
+    )
+    return classification
 
 
 def general_chat_node(state: ArchiveState) -> dict[str, Any]:
@@ -41,6 +55,7 @@ def general_chat_node(state: ArchiveState) -> dict[str, Any]:
     prompt = build_general_chat_prompt(
         question=state.get("question", ""),
         conversation_history=state.get("conversation_history", []),
+        suggestion_topics=get_random_archive_suggestions(),
     )
     response = invoke_llm(prompt)
     return {
@@ -97,8 +112,30 @@ def decide_after_generate_node(state: ArchiveState) -> Literal["evaluate", "fini
     return "evaluate"
 
 
-def classify_intent(question: str) -> Literal["archive_query", "general_chat", "tts_request"]:
-    """질문 문구의 단서를 보고 괴담 조회 요청인지 일반 대화인지 판단한다."""
+def classify_intent_and_keywords(
+    question: str,
+    conversation_history: list[dict[str, str]],
+) -> dict[str, Any]:
+    """LLM으로 intent와 키워드를 함께 판정하고 실패 시 규칙 기반으로 폴백한다."""
+    prompt = build_intent_classification_prompt(
+        question=question,
+        conversation_history=conversation_history,
+    )
+    try:
+        classification = parse_intent_classification_response(invoke_llm(prompt))
+        if classification:
+            if classification["intent"] == "archive_query" and not classification["keywords"]:
+                classification["keywords"] = extract_keywords(question)
+
+            return classification
+    except Exception:
+        pass
+
+    return classify_intent_and_keywords_by_rule(question)
+
+
+def classify_intent_and_keywords_by_rule(question: str) -> dict[str, Any]:
+    """LLM 분류 실패 시 기존 규칙으로 intent와 키워드를 만든다."""
     normalized_question = question.lower().strip()
     tts_markers = [
         "읽어줘",
@@ -110,7 +147,10 @@ def classify_intent(question: str) -> Literal["archive_query", "general_chat", "
     ]
     for marker in tts_markers:
         if marker in normalized_question:
-            return "tts_request"
+            return {
+                "intent": "tts_request",
+                "keywords": [],
+            }
 
     archive_markers = [
         "괴담",
@@ -130,12 +170,82 @@ def classify_intent(question: str) -> Literal["archive_query", "general_chat", "
     ]
     for marker in archive_markers:
         if marker in normalized_question:
-            return "archive_query"
+            return {
+                "intent": "archive_query",
+                "keywords": extract_keywords(question),
+            }
 
     if is_simple_general_chat(question):
-        return "general_chat"
+        return {
+            "intent": "general_chat",
+            "keywords": [],
+        }
 
-    return "archive_query"
+    return {
+        "intent": "archive_query",
+        "keywords": extract_keywords(question),
+    }
+
+
+def parse_intent_classification_response(raw_response: str) -> dict[str, Any]:
+    """LLM 라우팅 응답에서 intent와 keywords를 읽는다."""
+    parsed_response = parse_json_object(raw_response)
+    if not parsed_response:
+        return {}
+
+    intent = str(parsed_response.get("intent", "")).strip()
+    if intent not in ["archive_query", "general_chat", "tts_request"]:
+        return {}
+
+    keywords = clean_classified_keywords(parsed_response.get("keywords", []))
+    if intent != "archive_query":
+        keywords = []
+
+    return {
+        "intent": intent,
+        "keywords": keywords,
+    }
+
+
+def clean_classified_keywords(value: Any, limit: int = 5) -> list[str]:
+    """LLM이 반환한 키워드를 검색 가능한 문자열 목록으로 정리한다."""
+    if not isinstance(value, list):
+        return []
+
+    keywords = []
+    for item in value:
+        keyword = str(item).strip()
+        if not keyword:
+            continue
+
+        if keyword in keywords:
+            continue
+
+        keywords.append(keyword)
+        if len(keywords) >= limit:
+            break
+
+    return keywords
+
+
+def parse_json_object(raw_response: str) -> dict[str, Any]:
+    """문자열 응답에서 JSON 객체 하나를 파싱한다."""
+    try:
+        parsed_response = json.loads(raw_response)
+        if isinstance(parsed_response, dict):
+            return parsed_response
+    except json.JSONDecodeError:
+        start = raw_response.find("{")
+        end = raw_response.rfind("}")
+        if start >= 0 and end > start:
+            try:
+                parsed_response = json.loads(raw_response[start:end + 1])
+                if isinstance(parsed_response, dict):
+                    return parsed_response
+            except json.JSONDecodeError:
+                pass
+
+    return {}
 
 
 def is_simple_general_chat(question: str) -> bool:
@@ -151,7 +261,7 @@ def normalize_general_chat_message(value: str) -> str:
 def search_node(state: ArchiveState) -> dict[str, Any]:
     """질문에서 키워드를 뽑고 DB에서 가장 관련 있는 원본 기록을 찾는다."""
     question = state.get("question", "")
-    keywords = extract_keywords(question)
+    keywords = state.get("keywords") or extract_keywords(question)
     search_results = search_archive_records_for_question(question, keywords)
 
     source_story = {}
@@ -276,20 +386,9 @@ def invoke_llm(prompt: str) -> str:
 
 def parse_evaluation_response(raw_response: str) -> dict[str, Any]:
     """LLM 평가 응답에서 JSON 객체를 파싱하고 실패 시 불합격 결과를 만든다."""
-    try:
-        parsed_response = json.loads(raw_response)
-        if isinstance(parsed_response, dict):
-            return parsed_response
-    except json.JSONDecodeError:
-        start = raw_response.find("{")
-        end = raw_response.rfind("}")
-        if start >= 0 and end > start:
-            try:
-                parsed_response = json.loads(raw_response[start:end + 1])
-                if isinstance(parsed_response, dict):
-                    return parsed_response
-            except json.JSONDecodeError:
-                pass
+    parsed_response = parse_json_object(raw_response)
+    if parsed_response:
+        return parsed_response
 
     return {
         "keyword_passed": False,

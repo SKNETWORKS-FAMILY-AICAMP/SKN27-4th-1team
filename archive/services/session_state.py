@@ -7,17 +7,12 @@ LAST_TTS_ERROR_PREFIX = "archive_last_tts_error"
 ANONYMOUS_SESSION_SUFFIX = "anonymous"
 
 
-def get_archive_session_suffix(user: Any) -> str:
-    """로그인 사용자와 익명 사용자를 구분하는 archive 세션 키 suffix를 만든다."""
-    if getattr(user, "is_authenticated", False):
-        return f"user_{user.id}"
-
-    return ANONYMOUS_SESSION_SUFFIX
-
-
 def get_archive_session_keys(user: Any) -> dict[str, str]:
     """archive 챗봇 대화 기록과 검색 결과용 세션 키를 반환한다."""
-    suffix = get_archive_session_suffix(user)
+    suffix = ANONYMOUS_SESSION_SUFFIX
+    if getattr(user, "is_authenticated", False):
+        suffix = f"user_{user.id}"
+
     return {
         "conversation_history": f"{CONVERSATION_HISTORY_PREFIX}_{suffix}",
         "last_tts_text": f"{LAST_TTS_TEXT_PREFIX}_{suffix}",

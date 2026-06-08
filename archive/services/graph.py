@@ -25,14 +25,6 @@ def run_archive_chatbot(
             "revised": False,
         }
 
-    return run_archive_graph_response(cleaned_question, conversation_history)
-
-
-def run_archive_graph_response(
-    cleaned_question: str,
-    conversation_history: Optional[list[dict[str, str]]] = None,
-) -> dict[str, Any]:
-    """검색 우선 처리 없이 LangGraph 분류 결과에 따른 응답을 만든다."""
     archive_graph = build_archive_graph()
     final_state = archive_graph.invoke({
         "question": cleaned_question,
