@@ -53,14 +53,18 @@
       </section>
     </main>
 
+    {{ audio_volume_settings|json_script:"archiveAudioVolumeSettings" }}
     <script>
+      (() => {
       const params = new URLSearchParams(window.location.search);
       const firstMessage = params.get("q")?.trim() ?? "";
       const form = document.querySelector("#bbsForm");
       const input = document.querySelector("#bbsInput");
       const log = document.querySelector("#bbsLog");
+      const audioVolumeSettings = JSON.parse(
+        document.querySelector("#archiveAudioVolumeSettings").textContent
+      );
       const youtubeBgmId = "0br9VKMgdW0";
-      const youtubeBgmVolume = 50;
 
       // Local cache of last search results to handle digit select (e.g. "1", "2")
       let currentSearchResults = [];
@@ -68,6 +72,22 @@
       let currentAudio = null;
       let youtubeBgmFrame = null;
       let youtubeBgmReadyTimer = null;
+
+      function getYoutubeBgmVolume() {
+        return audioVolumeSettings.bgm;
+      }
+
+      function getTtsVolume() {
+        return audioVolumeSettings.tts;
+      }
+
+      function applyCurrentTtsVolume() {
+        if (!currentAudio) {
+          return;
+        }
+
+        currentAudio.volume = getTtsVolume() / audioVolumeSettings.max;
+      }
 
       function appendLine(className, label, message) {
         const line = document.createElement("p");
@@ -253,7 +273,7 @@
           JSON.stringify({
             event: "command",
             func: "setVolume",
-            args: [youtubeBgmVolume]
+            args: [getYoutubeBgmVolume()]
           }),
           "https://www.youtube.com"
         );
@@ -315,6 +335,7 @@
         appendLine("bbs-system", "TTS", "낭독 스트림을 여는 중...");
         currentAudio = new Audio(`/archive/api/tts/?t=${Date.now()}`);
         currentAudio.preload = "auto";
+        applyCurrentTtsVolume();
         let playbackFailed = false;
         currentAudio.onplaying = () => {
           appendLine("bbs-system", "TTS", "기록 낭독을 시작합니다.");
@@ -514,6 +535,7 @@
         input.value = "";
         input.focus();
       });
+      })();
     </script>
     <script src="{% static 'js/flicker.js' %}"></script>
   </body>

@@ -11,12 +11,18 @@ load_dotenv()
 
 ELEVENLABS_API_URL = "https://api.elevenlabs.io/v1/text-to-speech/{voice_id}/stream"
 ELEVENLABS_TIMEOUT_SECONDS = 60
+CHATBOT_BGM_VOLUME = 35
+CHATBOT_TTS_VOLUME = 90
+CHATBOT_MAX_VOLUME = 100
 
 
-def synthesize_story_audio(text: str) -> bytes:
-    """괴담 본문을 ElevenLabs 음성 파일 바이트로 변환한다."""
-    with open_story_audio_stream(text) as response:
-        return response.read()
+def get_chatbot_audio_volume_settings() -> dict[str, int]:
+    """챗봇 낭독에 사용할 고정 음량 비율을 반환한다."""
+    return {
+        "bgm": CHATBOT_BGM_VOLUME,
+        "tts": CHATBOT_TTS_VOLUME,
+        "max": CHATBOT_MAX_VOLUME,
+    }
 
 
 def open_story_audio_stream(text: str) -> Any:

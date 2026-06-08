@@ -2,7 +2,6 @@ from typing import Any
 
 
 CONVERSATION_HISTORY_PREFIX = "archive_conversation_history"
-LAST_SEARCH_RESULTS_PREFIX = "archive_last_search_results"
 LAST_TTS_TEXT_PREFIX = "archive_last_tts_text"
 LAST_TTS_ERROR_PREFIX = "archive_last_tts_error"
 ANONYMOUS_SESSION_SUFFIX = "anonymous"
@@ -21,7 +20,6 @@ def get_archive_session_keys(user: Any) -> dict[str, str]:
     suffix = get_archive_session_suffix(user)
     return {
         "conversation_history": f"{CONVERSATION_HISTORY_PREFIX}_{suffix}",
-        "last_search_results": f"{LAST_SEARCH_RESULTS_PREFIX}_{suffix}",
         "last_tts_text": f"{LAST_TTS_TEXT_PREFIX}_{suffix}",
         "last_tts_error": f"{LAST_TTS_ERROR_PREFIX}_{suffix}",
     }
@@ -41,22 +39,6 @@ def save_conversation_history(
     """현재 요청 사용자에 해당하는 archive 챗봇 대화 기록을 제한 개수만큼 저장한다."""
     keys = get_archive_session_keys(request.user)
     request.session[keys["conversation_history"]] = conversation_history[-limit:]
-    request.session.modified = True
-
-
-def save_last_search_results(request: Any, results: list[dict[str, Any]]) -> None:
-    """현재 요청 사용자에 해당하는 마지막 archive 검색 결과를 저장한다."""
-    keys = get_archive_session_keys(request.user)
-    request.session[keys["last_search_results"]] = [
-        {
-            "id": result["id"],
-            "name": result["name"],
-            "body": result["body"],
-            "regions": result["regions"],
-            "type": result["type"],
-        }
-        for result in results
-    ]
     request.session.modified = True
 
 
@@ -97,7 +79,6 @@ def clear_user_archive_session(request: Any, user: Any) -> None:
     """로그아웃한 사용자에게 연결된 archive 세션 기록만 제거한다."""
     keys = get_archive_session_keys(user)
     request.session.pop(keys["conversation_history"], None)
-    request.session.pop(keys["last_search_results"], None)
     request.session.pop(keys["last_tts_text"], None)
     request.session.pop(keys["last_tts_error"], None)
     request.session.modified = True
