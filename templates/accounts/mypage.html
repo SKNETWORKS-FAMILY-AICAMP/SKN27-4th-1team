@@ -37,6 +37,10 @@
             가입 {{ profile.date_joined|date:"Y-m-d" }} /
             보관 {{ profile.external_bookmark_count|add:profile.generated_bookmark_count|add:profile.post_bookmark_count }}
           </p>
+          <form class="account-delete-form" id="accountDeleteForm" method="post" action="{% url 'accounts:delete_account' %}">
+            {% csrf_token %}
+            <button class="account-delete-button" type="submit">회원 탈퇴</button>
+          </form>
         </header>
 
         <div class="my-record-tabs" role="tablist" aria-label="나의 보관함 종류">
@@ -184,6 +188,7 @@
       const tabs = document.querySelectorAll(".my-record-tab");
       const panels = document.querySelectorAll(".my-record-panel");
       const cards = document.querySelectorAll(".my-record-card");
+      const accountDeleteForm = document.querySelector("#accountDeleteForm");
 
       function getCsrfToken() {
         const cookie = document.cookie.split("; ").find((item) => item.startsWith("csrftoken="));
@@ -369,6 +374,12 @@
           cards.forEach((item) => item.classList.remove("selected"));
           document.querySelectorAll(".inline-record-detail").forEach((detail) => detail.remove());
         });
+      });
+
+      accountDeleteForm?.addEventListener("submit", (event) => {
+        if (!window.confirm("진짜 탈퇴 하시겠습니까?")) {
+          event.preventDefault();
+        }
       });
 
       cards.forEach((card) => {

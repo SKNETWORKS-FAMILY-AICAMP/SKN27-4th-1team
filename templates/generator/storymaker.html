@@ -125,10 +125,6 @@
           bodyParts.push(result.content);
         }
 
-        if (result.summary) {
-          bodyParts.push(`[요약] ${result.summary}`);
-        }
-
         publishPayload = {
           category: "CREATION",
           title: result.title || `${data.place}의 ${data.entityType}`,
@@ -145,13 +141,13 @@
         publishCreationButton.disabled = true;
 
         const data = {
-          region: valueOf("#region", "지역 미상"),
-          place: valueOf("#place", "기록되지 않은 장소"),
-          entityType: valueOf("#entityType", "괴이"),
-          taboo: valueOf("#taboo", "말하지 말아야 할 것"),
-          time: valueOf("#time", "시간 불명"),
-          condition: valueOf("#condition", "조건이 충족되는 순간"),
-          ending: valueOf("#ending", "끝내 기록만 남는다"),
+          region: valueOf("#region", "자유롭게 창작"),
+          place: valueOf("#place", "자유롭게 창작"),
+          entityType: valueOf("#entityType", "알 수 없는 기괴한 존재"),
+          taboo: valueOf("#taboo", "자유롭게 창작"),
+          time: valueOf("#time", "자유롭게 창작"),
+          condition: valueOf("#condition", "자유롭게 창작"),
+          ending: valueOf("#ending", "자유롭게 창작 (가장 무섭고 찝찝하게)"),
         };
 
         story.replaceChildren();
@@ -180,12 +176,19 @@
           // 본문 줄바꿈 처리
           if (result.content) {
             const lines = result.content.split('\n');
+            let isFirstLine = true;
             lines.forEach(line => {
-              if(line.trim()) appendLine("", "", line);
+              if(line.trim()) {
+                if (isFirstLine) {
+                  appendLine("bbs-bot", "TEXT", line);
+                  isFirstLine = false;
+                } else {
+                  appendLine("", "", line);
+                }
+              }
             });
           }
 
-          appendLine("bbs-system", "SUMMARY", result.summary);
           setPublishPayload(data, result);
 
         } catch (error) {
