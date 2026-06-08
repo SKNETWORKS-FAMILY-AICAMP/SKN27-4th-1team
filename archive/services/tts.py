@@ -11,7 +11,7 @@ load_dotenv()
 
 ELEVENLABS_API_URL = "https://api.elevenlabs.io/v1/text-to-speech/{voice_id}/stream"
 ELEVENLABS_TIMEOUT_SECONDS = 60
-CHATBOT_BGM_VOLUME = 35
+CHATBOT_BGM_VOLUME = 27
 CHATBOT_TTS_VOLUME = 90
 CHATBOT_MAX_VOLUME = 100
 
