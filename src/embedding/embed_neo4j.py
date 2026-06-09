@@ -21,7 +21,6 @@ def run_embedding():
     targets = [
         {"label": "Story", "text_prop": "body"},
         {"label": "Legend", "text_prop": "name"},
-        {"label": "SCP", "text_prop": "text"},
     ]
 
     with driver.session() as session:
@@ -37,14 +36,6 @@ def run_embedding():
         session.run("""
         CREATE VECTOR INDEX legend_embeddings IF NOT EXISTS
         FOR (l:Legend) ON (l.embedding)
-        OPTIONS {indexConfig: {
-          `vector.dimensions`: 384,
-          `vector.similarity_function`: 'cosine'
-        }}
-        """)
-        session.run("""
-        CREATE VECTOR INDEX scp_embeddings IF NOT EXISTS
-        FOR (s:SCP) ON (s.embedding)
         OPTIONS {indexConfig: {
           `vector.dimensions`: 384,
           `vector.similarity_function`: 'cosine'
