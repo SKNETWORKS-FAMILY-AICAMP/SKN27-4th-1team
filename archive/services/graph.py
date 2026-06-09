@@ -84,7 +84,9 @@ def build_archive_graph():
     builder = StateGraph(graph_nodes.ArchiveState)
     builder.add_node("intent", graph_nodes.intent_node)
     builder.add_node("general_chat", graph_nodes.general_chat_node)
+    builder.add_node("recommend", graph_nodes.recommend_node)
     builder.add_node("tts", graph_nodes.tts_node)
+    builder.add_node("tts_stop", graph_nodes.tts_stop_node)
     builder.add_node("search", graph_nodes.search_node)
     builder.add_node("generate", graph_nodes.generate_node)
     builder.add_node("evaluate", graph_nodes.evaluation_node)
@@ -97,11 +99,15 @@ def build_archive_graph():
             "archive_query": "search",
             "generate": "generate",
             "general_chat": "general_chat",
+            "recommend_request": "recommend",
             "tts_request": "tts",
+            "tts_stop": "tts_stop",
         },
     )
     builder.add_edge("general_chat", END)
+    builder.add_edge("recommend", END)
     builder.add_edge("tts", END)
+    builder.add_edge("tts_stop", END)
     builder.add_edge("search", END)
     builder.add_conditional_edges(
         "generate",

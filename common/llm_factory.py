@@ -8,7 +8,7 @@ def get_post_generation_llm():
         temperature=0.5
     )
 
-def get_llm(): # evaluation, rag
+def get_llm(): # evaluation
     return ChatGroq(model="openai/gpt-oss-120b")
 
 def generator_llm():

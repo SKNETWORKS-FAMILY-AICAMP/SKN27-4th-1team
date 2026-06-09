@@ -90,6 +90,7 @@ def sillok_search_api(request):
             'llm_response': '괴담 데이터베이스를 사용할 수 없습니다. DB 상태를 확인해 주세요.',
         }, status=503)
     except Exception as error:
+        logging.getLogger(__name__).exception("Archive search API failed")
         if is_rate_limit_error(error):
             return make_rate_limit_response(query)
 
@@ -180,6 +181,7 @@ def sillok_rewrite_api(request):
             'llm_response': '괴담 데이터베이스를 사용할 수 없습니다. DB 상태를 확인해 주세요.',
         }, status=503)
     except Exception as error:
+        logging.getLogger(__name__).exception("Archive rewrite API failed")
         if is_rate_limit_error(error):
             return make_rate_limit_response(query)
 

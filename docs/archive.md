@@ -1,6 +1,6 @@
 # Archive 앱 구현 흐름 정리
 
-이 문서는 현재 코드에 반영된 `archive` 앱의 화면, API, LangGraph, 검색, 금기 자료실, TTS 흐름을 정리한다.
+이 문서는 현재 코드에 반영된 `archive` 앱의 화면, API, LangGraph, 검색, 추천, TTS, 평가 흐름을 정리한다.
 
 ## 1. 적용 범위
 
@@ -50,7 +50,9 @@
 | `/archive/taboos/today/` | `archive.views.archive` | 금기 자료실 화면 별칭 |
 | `/archive/taboos/<id>/` | `archive.views.archive` | 금기 자료실 화면 별칭 |
 
-## 3. 화면 흐름
+첫 화면의 입력은 직접 API를 호출하지 않고 `/archive/chatbot/?q=...`로 이동한다. 챗봇 화면은 쿼리스트링의 `q` 값을 읽어 첫 메시지처럼 처리한다.
+
+## 3. 전체 화면 흐름
 
 ```mermaid
 flowchart TD
@@ -70,107 +72,64 @@ flowchart TD
     K --> L["금기 목록/검색/오늘의 금기 API 호출"]
 ```
 
-첫 화면의 입력은 직접 API를 호출하지 않고 `/archive/chatbot/?q=...`로 이동한다. 챗봇 화면은 쿼리스트링의 `q` 값을 읽어 첫 메시지처럼 처리한다.
+챗봇 화면은 검색 결과를 브라우저의 `currentSearchResults`와 `sessionStorage`에 보관한다. 사용자가 번호나 제목을 입력하면 서버 세션이 아니라 프론트 상태에 저장된 마지막 검색 결과에서 선택 기록을 찾는다.
 
 ## 4. 챗봇 API 흐름
 
 ```mermaid
 flowchart TD
     A["사용자 입력"] --> B["/archive/api/search/"]
-    B --> C["세션 대화 기록 조회"]
+    B --> C["세션 conversation_history 조회"]
     C --> D["run_archive_chatbot()"]
     D --> E["LangGraph 실행"]
     E --> F["intent_node"]
 
     F -->|archive_query| G["search_node"]
-    F -->|general_chat| H["general_chat_node"]
-    F -->|tts_request| I["tts_node"]
+    F -->|recommend_request| H["recommend_node"]
+    F -->|general_chat| I["general_chat_node"]
+    F -->|tts_request| J["tts_node"]
+    F -->|tts_stop| K["tts_stop_node"]
 
-    G --> J["DB 검색 결과 + 선택 유도 응답"]
-    H --> K["일반 대화 응답"]
-    I --> L["마지막 TTS 본문 존재 여부 확인"]
+    G --> L["공통 검색 서비스"]
+    H --> H1["추천 기준 추출"]
+    H1 --> L
+    L --> M["분위기 안내 응답 + results JSON"]
+    I --> N["일반 대화 응답"]
+    J --> O["마지막 TTS 본문 존재 여부 확인"]
+    K --> P["낭독 중지 상태 반환"]
 
-    J --> M["프론트 currentSearchResults 저장"]
-    M --> N["사용자가 번호/제목으로 기록 선택"]
-    N --> O["/archive/api/rewrite/"]
-    O --> P["run_archive_record_chatbot()"]
-    P --> Q["generate_node"]
-    Q --> R["evaluation_node"]
-    R -->|통과| S["최종 본문 반환"]
-    R -->|실패| T["revise_node 1회<br/>수정본 반환"]
-    S --> V["last_tts_text 저장"]
-    T --> V
+    M --> Q["프론트 currentSearchResults 저장"]
+    Q --> R["사용자가 번호/제목으로 기록 선택"]
+    R --> S["/archive/api/rewrite/"]
+    S --> T["run_archive_record_chatbot()"]
+    T --> U["generate_node"]
+    U --> V["evaluation_node"]
+    V -->|통과| W["최종 본문 반환"]
+    V -->|실패| X["revise_node 1회"]
+    X --> W
+    W --> Y["last_tts_text 저장"]
 
-    L --> W["/archive/api/tts/ 스트림 재생"]
+    O --> Z["/archive/api/tts/ 스트림 재생"]
 ```
 
-`/archive/api/search/`는 처음부터 괴담 본문을 생성하지 않는다. 검색 의도라면 관련 원본 기록 목록과 선택을 유도하는 응답을 반환하고, 사용자가 특정 기록을 고른 뒤 `/archive/api/rewrite/`에서 괴담 재구성 단계로 들어간다.
+`/archive/api/search/`는 검색 의도에서 괴담 본문을 바로 생성하지 않는다. 먼저 관련 기록 목록을 JSON으로 반환하고, 사용자가 특정 기록을 고른 뒤 `/archive/api/rewrite/`에서 재구성한다.
 
-### 챗봇 시퀀스 다이어그램
+공통 검색 서비스는 내부에서 pgvector 의미 검색, Neo4j 관련 키워드 확장, PostgreSQL 키워드 검색을 병합한다.
 
-```mermaid
-sequenceDiagram
-    actor User as 사용자
-    participant Browser as chatbot.html
-    participant SearchAPI as search API
-    participant RewriteAPI as rewrite API
-    participant TTSAPI as tts API
-    participant Session as Django session
-    participant Graph as LangGraph
-    participant DB as PostgreSQL/Neo4j
-    participant LLM as Groq LLM
-    participant ElevenLabs as ElevenLabs
+검색 안내용 `llm_response`는 기록 목록을 직접 나열하지 않는다. `build_search_choice_prompt()`는 검색어 주변의 불길한 분위기를 4줄 이상으로 말하게 하고, 실제 결과 목록은 `chatbot.html`이 `data.results`를 순회하면서 별도로 출력한다.
 
-    User->>Browser: 질문 입력
-    Browser->>SearchAPI: GET /archive/api/search/?q=...
-    SearchAPI->>Session: conversation_history 조회
-    SearchAPI->>Graph: run_archive_chatbot(question, history)
-    Graph->>LLM: intent 분류
+## 5. LangGraph 노드
 
-    alt archive_query
-        Graph->>DB: 키워드 기반 기록 검색
-        DB-->>Graph: 관련 기록 목록
-        Graph->>LLM: 검색 결과 선택 유도 응답 생성
-        Graph-->>SearchAPI: chatbot_result 반환
-        SearchAPI->>Session: conversation_history 저장
-        SearchAPI-->>Browser: results, llm_response 포함 JSON 응답
-        Browser->>Browser: currentSearchResults 저장
-        User->>Browser: 번호 또는 제목으로 기록 선택
-        Browser->>RewriteAPI: GET /archive/api/rewrite/?type=...&id=...&q=...
-        RewriteAPI->>Session: conversation_history 조회
-        RewriteAPI->>DB: 선택 기록 조회
-        RewriteAPI->>Graph: run_archive_record_chatbot()
-        Graph->>LLM: 생성, 평가, 필요 시 1회 수정
-        Graph-->>RewriteAPI: chatbot_result 반환
-        RewriteAPI->>Session: conversation_history, last_tts_text 저장
-        RewriteAPI-->>Browser: llm_response 포함 JSON 응답
-    else general_chat
-        Graph->>LLM: 일반 대화 응답 생성
-        Graph-->>SearchAPI: chatbot_result 반환
-        SearchAPI->>Session: conversation_history 저장
-        SearchAPI-->>Browser: llm_response 포함 JSON 응답
-    else tts_request
-        Graph-->>SearchAPI: tts_ready 반환
-        SearchAPI->>Session: last_tts_text 확인
-        SearchAPI-->>Browser: has_tts_text 포함 JSON 응답
-        Browser->>TTSAPI: GET /archive/api/tts/
-        TTSAPI->>Session: last_tts_text 조회
-        TTSAPI->>ElevenLabs: TTS 스트림 요청
-        ElevenLabs-->>TTSAPI: audio/mpeg stream
-        TTSAPI-->>Browser: StreamingHttpResponse
-    end
-```
-
-## 5. LangGraph 활용 흐름
-
-archive 앱은 LangGraph를 사용해 챗봇 처리 단계를 노드 단위로 나누고, 입력 의도에 따라 다음 흐름을 분기한다.
+archive 앱은 LangGraph로 입력 의도에 따라 노드 흐름을 분기한다.
 
 | 노드 | 함수 | 역할 |
 |---|---|---|
-| `intent` | `intent_node` | 사용자 입력 의도와 키워드 분류 |
-| `general_chat` | `general_chat_node` | 검색이 아닌 일반 대화 응답 |
+| `intent` | `intent_node` | 사용자 입력 의도와 검색 분류 추출 |
+| `general_chat` | `general_chat_node` | 검색 대상이 없는 일반 대화 응답 |
+| `recommend` | `recommend_node` | 최근 맥락 또는 분류 키워드 기준 추천 검색 |
 | `tts` | `tts_node` | 낭독 요청 상태 반환 |
-| `search` | `search_node` | DB 검색 및 선택 유도 응답 |
+| `tts_stop` | `tts_stop_node` | 낭독 중지 요청 상태 반환 |
+| `search` | `search_node` | 검색 및 분위기 안내 응답 |
 | `generate` | `generate_node` | 선택 기록 기반 괴담 본문 생성 |
 | `evaluate` | `evaluation_node` | 생성 결과 평가 |
 | `revise` | `revise_node` | 평가 실패 시 1회 수정 |
@@ -179,23 +138,70 @@ archive 앱은 LangGraph를 사용해 챗봇 처리 단계를 노드 단위로 �
 
 | intent | 조건 | 다음 흐름 |
 |---|---|---|
-| `archive_query` | 괴담, 조회, 검색, 금기, 기록, 본문 등 검색 의도 | `search` |
+| `archive_query` | 구체 소재가 있는 괴담/조회/검색/추천 요청 | `search` |
+| `recommend_request` | “추천해줘”, “비슷한 거”처럼 최근 기록 기준 추천 요청 | `recommend` |
 | `general_chat` | 인사, 감사, 잡담, 검색 대상이 불분명한 문장 | `general_chat` |
 | `tts_request` | 읽어줘, 낭독, 들려줘, 재생, tts 등 | `tts` |
+| `tts_stop` | 멈춰, 중지, 정지, 그만, stop, 스톱 등 | `tts_stop` |
+
+프론트에서는 `멈춰` 계열 입력을 `isTtsStopCommand()`가 먼저 처리해 오디오와 YouTube BGM을 즉시 정리한다. 서버의 `tts_stop` 분기는 API로 들어온 중지 요청까지 받을 수 있는 보조 흐름이다.
 
 특정 기록이 이미 `source_story`로 들어온 경우에는 `intent` 분류를 건너뛰고 `generate` 흐름으로 진행한다. 이 경로는 `/archive/api/rewrite/`에서 사용된다.
 
-## 6. 검색 흐름
+## 6. 입력 분류와 query_analysis
 
-`archive/services/archive_search.py`의 `search_archive_records_for_question()`이 검색을 담당한다.
+`build_intent_classification_prompt()`는 기존 `intent + keywords`만 요구하던 구조에서 다음 필드를 함께 반환하도록 확장됐다.
 
-1. `keyword_extractor.extract_keywords()`로 사용자 질문에서 검색 키워드를 만든다.
-2. Neo4j 연결이 가능하면 `get_neo4j_related_keywords()`로 관련 키워드를 확장한다.
-3. `search_archive_records_by_keywords()`가 PostgreSQL 모델을 검색한다.
-4. 결과가 없으면 `extract_fallback_keywords()`로 원문 토큰 기반 보조 키워드를 만들어 한 번 더 검색한다.
-5. 검색 결과는 관련도 점수 기준으로 정렬되고 기본 최대 5개까지 반환된다.
+| 필드 | 의미 |
+|---|---|
+| `intent` | LangGraph 라우팅용 의도 |
+| `keywords` | 기존 검색 호환용 키워드 목록 |
+| `command_terms` | 찾아줘, 추천해줘, 알려줘 같은 요청 표현 |
+| `genre_terms` | 괴담, 도시전설, 금기, 목격담 같은 장르/자료 유형 |
+| `modifier_terms` | 아주 무서운, 짧은, 실화 같은 수식 조건 |
+| `core_keywords` | 실제 검색 대상인 장소, 존재, 사물, 사건, 행위 |
+| `search_query` | pgvector 임베딩 검색에 사용할 짧은 검색 문장 |
 
-검색 대상 모델은 다음과 같다.
+`graph_nodes.py`는 LLM 분류가 실패하거나 필요한 필드가 비었을 때 규칙 기반으로 폴백한다.
+
+- `tts_stop` 마커를 먼저 확인한다.
+- `tts_request` 마커를 확인한다.
+- 추천 마커가 있고 새 소재가 있으면 `archive_query`로 보낸다.
+- 추천 마커만 있으면 `recommend_request`로 보낸다.
+- 검색 마커가 있으면 `extract_keywords()` 기반 `archive_query`로 보낸다.
+- 단순 일반 대화는 `general_chat`으로 보낸다.
+
+`search_query`가 없으면 `core_keywords`, `modifier_terms`, `genre_terms`를 순서대로 합쳐 만들고, 그래도 비어 있으면 기존 키워드나 원문을 사용한다.
+
+## 7. 검색 흐름
+
+`archive/services/archive_search.py`의 `search_archive_records_for_question()`이 검색을 담당한다. 현재 검색은 의미 기반 검색과 키워드 기반 검색을 병합한다.
+
+1. `search_node` 또는 `recommend_node`가 `query_analysis.search_query`를 semantic query로 넘긴다.
+2. `search_archive_records_by_semantic_query()`가 `record_embeddings`의 `content` 청크 임베딩과 pgvector cosine similarity를 비교한다.
+3. semantic 결과는 `ARCHIVE_SEMANTIC_MIN_SIMILARITY` 이상만 사용한다. 기본값은 archive 내부에서 `0.5`로 읽는다.
+4. Neo4j 연결이 가능하면 `get_neo4j_related_keywords()`로 관련 키워드를 확장한다.
+5. `search_archive_records_by_keywords()`가 PostgreSQL 모델을 명시적 필드 검색한다.
+6. 키워드 결과가 없으면 `extract_fallback_keywords()`로 원문 토큰 기반 보조 키워드를 만들어 다시 검색한다.
+7. semantic 결과를 우선하고 키워드/fallback 결과를 뒤에 보강해 중복 없이 최대 5개를 반환한다.
+
+semantic 검색 설정은 `config/settings.py`가 아니라 `archive_search.py` 내부에서 환경 변수를 직접 읽는다.
+
+| 환경 변수 | 기본값 | 의미 |
+|---|---|---|
+| `ARCHIVE_EMBEDDING_MODEL_NAME` | `intfloat/multilingual-e5-base` | query 임베딩 모델 |
+| `ARCHIVE_EMBEDDING_OUTPUT_DIMENSION` | `768` | 임베딩 차원 |
+| `ARCHIVE_SEMANTIC_MIN_SIMILARITY` | `0.5` | semantic 결과 최소 유사도 |
+
+semantic 검색 대상은 `record_embeddings`에 저장된 원본이다. 현재 변환 대상 타입은 다음과 같다.
+
+| source_table | record type | 비고 |
+|---|---|---|
+| `horror_stories` | `horror_story` | 괴담/도시전설 |
+| `myth_entities` | `myth_entity` | 신화/전설/괴이 존재 |
+| `dcinside_posts` | `dcinside_post` | 외부 수집 공포 게시글 |
+
+키워드 검색 대상은 다음과 같다.
 
 | 모델 | DB 테이블 | 검색 필드 |
 |---|---|---|
@@ -203,9 +209,23 @@ archive 앱은 LangGraph를 사용해 챗봇 처리 단계를 노드 단위로 �
 | `MythEntity` | `myth_entities` | `name`, `origin`, `description`, `behavior`, `weakness`, `history`, `signs`, `survival_rules` |
 | `Superstition` | `superstitions` | `content`, `category`, `region` |
 
-`search_relevance.py`는 너무 일반적인 검색어와 약한 매칭 결과를 걸러내고, `score_record_text()`로 결과 정렬 점수를 계산한다.
+`search_relevance.py`는 너무 일반적인 검색어와 약한 매칭 결과를 걸러내고, `score_record_text()`로 키워드 결과 정렬 점수를 계산한다.
 
-## 7. 목록 선택 방식
+## 8. 추천 흐름
+
+추천은 두 가지로 나뉜다.
+
+| 입력 예 | intent | 처리 |
+|---|---|---|
+| `화장실 괴담 추천해줘` | `archive_query` | 새 소재가 있으므로 일반 검색 |
+| `추천해줘` | `recommend_request` | 최근 대화/생성 본문에서 키워드 추출 후 추천 |
+| `방금 거랑 비슷한 거 추천해줘` | `recommend_request` | 최근 맥락 기준 추천 |
+
+`recommend_node()`는 `state.keywords`가 있으면 그대로 쓰고, 없으면 최근 assistant 대화에서 `extract_recent_context_keywords()`로 추천 기준 키워드를 뽑는다. 기준 키워드가 없으면 “먼저 기록 하나를 열어 주십시오.” 메시지로 종료한다.
+
+추천 검색도 일반 검색과 같은 `search_archive_records_for_question()`을 사용하므로 pgvector semantic 검색, Neo4j 관련 키워드, PostgreSQL 키워드 검색이 함께 적용된다.
+
+## 9. 목록 선택 방식
 
 챗봇 프론트는 검색 결과를 브라우저 상태에 저장한다.
 
@@ -219,17 +239,17 @@ archive 앱은 LangGraph를 사용해 챗봇 처리 단계를 노드 단위로 �
 
 선택이 확정되면 `rewriteSelectedRecord()`가 `/archive/api/rewrite/?type=...&id=...&q=...`를 호출한다.
 
-## 8. 선택 기록 기반 생성 흐름
+## 10. 선택 기록 기반 생성 흐름
 
 `/archive/api/rewrite/`는 `type`과 `id`로 원본 기록을 하나 조회한 뒤 `run_archive_record_chatbot()`을 실행한다.
 
-1. `get_archive_record()`가 `horror_story`, `myth_entity`, `superstition` 중 하나를 조회한다.
+1. `get_archive_record()`가 `horror_story`, `myth_entity`, `superstition`, `dcinside_post` 중 하나를 조회한다.
 2. 조회 결과를 `source_story` 형태로 변환한다.
-3. `generate_node`가 원본 기록, 키워드, 대화 기록을 기반으로 괴담 본문을 생성한다.
-4. `evaluation_node`가 생성 결과를 JSON 기준으로 평가한다.
-5. 실패하면 `revise_node`가 한 번만 수정한다.
-6. 최종 `llm_response`를 JSON으로 반환한다.
-7. View는 최종 본문을 `last_tts_text`에 저장한다.
+3. `generate_node()`가 원본 기록, 키워드, 대화 기록을 기반으로 괴담 본문을 생성한다.
+4. `evaluation_node()`가 생성 결과를 JSON 기준으로 평가한다.
+5. 평가가 실패하면 `revise_node()`가 한 번만 수정한다.
+6. 평가 LLM 호출 자체가 실패하면 로그를 남기고 평가를 생략하되, 생성된 본문은 그대로 반환한다.
+7. View는 최종 본문을 `conversation_history`와 `last_tts_text`에 저장한다.
 
 평가 기준은 다음 네 항목이다.
 
@@ -240,24 +260,26 @@ archive 앱은 LangGraph를 사용해 챗봇 처리 단계를 노드 단위로 �
 | `style_passed` | 문체가 일관되는지 |
 | `atmosphere_passed` | 공포 분위기와 감각적 긴장이 충분한지 |
 
-평가 응답을 JSON으로 파싱하지 못하면 불합격 평가로 처리한다.
+평가 응답을 JSON으로 파싱하지 못하면 불합격 평가로 처리한다. 단, 평가 LLM 호출 예외는 `Archive evaluation LLM failed` 로그를 남기고 생성문 반환을 막지 않는다.
 
-## 9. 프롬프트 구성
+## 11. 프롬프트 구성
 
 프롬프트는 `archive/services/prompt.py`에 모여 있다.
 
 | 함수 | 역할 |
 |---|---|
-| `build_intent_classification_prompt` | 입력 의도와 검색 키워드 분류 |
+| `build_intent_classification_prompt` | 입력 의도와 세부 검색 분류 |
 | `build_general_chat_prompt` | archive 챗봇 말투의 일반 대화 |
-| `build_search_choice_prompt` | 검색 결과 목록 기반 선택 유도 응답 |
+| `build_search_choice_prompt` | 검색어 주변 분위기 안내. 목록/번호/선택 안내는 금지 |
 | `build_generation_prompt` | 선택 원본 기록 기반 괴담 생성 |
 | `build_evaluation_prompt` | 생성 결과 평가 |
 | `build_revision_prompt` | 실패한 초안 수정 |
 
+`build_search_choice_prompt()`는 DB 검색 결과를 분위기 참고용으로만 쓰고, 제목/번호/유형/지역을 직접 나열하지 않게 한다. 답변은 최소 4줄 이상의 분위기 문장으로 끝나야 한다. 실제 목록은 프론트가 `data.results`를 별도 출력한다.
+
 대화 기록은 `format_conversation_history()`가 프롬프트용 텍스트로 바꾸고, 원본 기록은 `format_source_story()`가 제목, 유형, 지역, 본문 형태로 정리한다.
 
-## 10. 세션 상태
+## 12. 세션 상태
 
 `archive/services/session_state.py`는 Django 세션에 archive 챗봇 상태를 저장한다.
 
@@ -274,7 +296,7 @@ archive 앱은 LangGraph를 사용해 챗봇 처리 단계를 노드 단위로 �
 
 현재 검색 결과 목록은 서버 세션이 아니라 `chatbot.html`의 `sessionStorage`와 `currentSearchResults`에 저장된다. 로그아웃 링크를 누르면 프론트의 채팅 상태를 지우고, Django 로그아웃 시그널은 `clear_user_archive_session()`으로 archive 관련 서버 세션 기록을 제거한다.
 
-## 11. TTS 흐름
+## 13. TTS 흐름
 
 TTS는 `archive/services/tts.py`에서 ElevenLabs 스트리밍 API를 사용한다.
 
@@ -293,6 +315,7 @@ ELEVENLABS_MODEL_ID=
 3. `/archive/api/search/`가 `tts_request`로 분기한다.
 4. 저장된 본문이 있으면 프론트가 `/archive/api/tts/`를 오디오 소스로 연다.
 5. 서버가 `open_story_audio_stream()`으로 ElevenLabs 스트림을 열고 `StreamingHttpResponse`로 `audio/mpeg`를 반환한다.
+6. 사용자가 멈춰, 중지, 정지, 그만 등을 입력하면 프론트가 현재 TTS와 YouTube BGM을 즉시 정리한다.
 
 `POST /archive/api/tts/`는 직접 전달받은 텍스트를 저장할 수도 있다. `prepare_only`가 참이면 스트리밍하지 않고 `last_tts_text`만 준비한다.
 
@@ -305,7 +328,7 @@ TTS 오류 확인용 보조 요청도 있다.
 
 `ELEVENLABS_MODEL_ID` 기본값은 `eleven_multilingual_v2`다. `eleven_v3`가 아닌 모델에는 `optimize_streaming_latency=1` 쿼리를 붙인다.
 
-## 12. 오디오 볼륨과 배경음
+## 14. 오디오 볼륨과 배경음
 
 챗봇 화면은 `get_chatbot_audio_volume_settings()` 값을 JSON으로 받아 사용한다.
 
@@ -317,7 +340,7 @@ TTS 오류 확인용 보조 요청도 있다.
 
 낭독 시작 시 `chatbot.html`은 YouTube iframe을 생성해 배경음을 재생하고, TTS 오디오는 `/archive/api/tts/`를 `Audio` 객체로 열어 재생한다. TTS가 종료되거나 사용자가 중지 명령을 입력하면 현재 오디오와 YouTube iframe을 정리한다.
 
-## 13. 금기 자료실 흐름
+## 15. 금기 자료실 흐름
 
 `templates/archive/archive.html`은 금기 자료실 화면이다. 화면 진입 후 `loadTaboos()`가 전체 목록 API를 호출한다.
 
@@ -330,19 +353,7 @@ TTS 오류 확인용 보조 요청도 있다.
 
 `get_today_taboo()`는 현재 날짜 문자열의 문자 코드 합을 전체 금기 개수로 나눈 나머지를 사용해 하루 동안 고정되는 항목을 고른다.
 
-금기 API 응답은 `serialize_taboo()`가 다음 형태로 정리한다.
-
-| 필드 | 의미 |
-|---|---|
-| `id` | DB ID |
-| `index` | 원본 인덱스 또는 ID |
-| `content` | 금기 문장 |
-| `category` | 분류 |
-| `region` | 지역 |
-| `source` | 출처 |
-| `source_ref_id` | 출처 기준 ID |
-
-## 14. 북마크 연동
+## 16. 북마크 연동
 
 챗봇에서 특정 기록을 열람한 뒤 사용자가 `저장` 또는 `save`를 입력하면 `chatbot.html`이 `/accounts/api/bookmark/add/`를 호출한다.
 
@@ -356,7 +367,7 @@ TTS 오류 확인용 보조 요청도 있다.
 
 로그인하지 않은 사용자는 accounts API에서 401 응답을 받는다.
 
-## 15. 오류 처리
+## 17. 오류 처리와 로그
 
 | 상황 | 처리 |
 |---|---|
@@ -371,14 +382,37 @@ TTS 오류 확인용 보조 요청도 있다.
 | ElevenLabs 생성 실패 | 503 JSON 응답 및 오류 메시지 저장 |
 | 금기 데이터 없음 | `status: empty` JSON 응답 |
 
-## 16. LLM 설정
+추적용 로그는 다음 위치에서 남긴다.
+
+| 로그 메시지 | 위치 | 의미 |
+|---|---|---|
+| `Archive search API failed` | `sillok_search_api()` | 검색 API 최상위 예외 |
+| `Archive rewrite API failed` | `sillok_rewrite_api()` | 재구성 API 최상위 예외 |
+| `Archive evaluation LLM failed` | `evaluation_node()` | 평가 LLM 호출 실패 |
+
+## 18. LLM 설정
 
 `common/llm_factory.py`의 현재 설정은 다음과 같다.
 
-| 함수 | 모델 | 용도 |
+| 함수 | 모델 | 현재 용도 |
 |---|---|---|
-| `get_llm()` | Groq `openai/gpt-oss-120b` | archive intent, 일반 대화, 검색 선택 응답, 생성, 평가, 수정 |
-| `get_post_generation_llm()` | Ollama `gemma3:4b` | post 생성 계열 |
+| `get_post_generation_llm()` | Ollama `gemma3:4b` | archive 기본 LLM 호출, generator 신규 괴담 생성 |
+| `get_llm()` | Groq `openai/gpt-oss-120b` | archive evaluation 전용 |
 | `generator_llm()` | Ollama `gemma4:e4b` | generator 계열 |
 
-archive 앱의 LangGraph 노드는 공통적으로 `get_llm()`을 통해 LLM을 호출한다.
+archive 앱의 `invoke_llm()`은 `get_post_generation_llm()`을 사용한다. 따라서 intent 분류, 일반 대화, 검색 분위기 안내, 괴담 생성, 수정은 기본 생성 모델을 탄다.
+
+archive 앱의 `invoke_evaluation_llm()`만 `get_llm()`을 사용한다. 평가 LLM 호출이 실패하면 traceback 로그를 남기고 평가를 생략하며, 생성된 괴담 본문은 사용자에게 반환한다.
+
+## 19. 주요 의존성
+
+pgvector semantic 검색을 실행하려면 `sentence-transformers`와 백엔드 프레임워크인 `torch`가 필요하다. `requirements.txt`에는 다음 항목이 포함되어야 한다.
+
+```text
+pgvector==0.4.2
+sentence-transformers==5.5.1
+torch
+neo4j==6.2.0
+```
+
+`torch`가 없으면 SentenceTransformer가 실제 임베딩을 만들지 못하고 semantic 검색은 빈 결과로 떨어질 수 있다. 이 경우 기존 키워드/Neo4j 검색이 fallback 역할을 한다.

@@ -1,11 +1,13 @@
 import os
 import random
 import socket
+from functools import lru_cache
 from typing import Any
 
-from django.db import DatabaseError
+from django.core.exceptions import ObjectDoesNotExist
+from django.db import DatabaseError, connection
 
-from archive.models import HorrorStory, MythEntity, Superstition
+from archive.models import DcinsidePost, HorrorStory, MythEntity, Superstition
 from archive.services.keyword_extractor import extract_fallback_keywords
 from archive.services.search_policy import SINGLE_KEYWORD_WEAK_MATCH_COUNTS
 from archive.services.search_relevance import (
@@ -18,10 +20,16 @@ from archive.services.search_relevance import (
 def search_archive_records_for_question(
     question: str,
     keywords: list[str],
+    semantic_query: str = "",
     limit: int = 5,
     body_limit: int = 1800,
 ) -> list[dict[str, Any]]:
-    """정제 키워드 검색 후 결과가 없으면 원문 토큰으로 한 번 더 검색한다."""
+    """의미 기반 검색과 정제 키워드 검색으로 관련 기록을 찾는다."""
+    semantic_results = search_archive_records_by_semantic_query(
+        semantic_query,
+        limit=limit,
+        body_limit=body_limit,
+    )
     neo4j_driver = get_neo4j_driver()
     try:
         related_keywords = []
@@ -39,11 +47,15 @@ def search_archive_records_for_question(
             body_limit=body_limit,
         )
         if search_results:
-            return search_results
+            return merge_archive_search_results(
+                semantic_results,
+                search_results,
+                limit=limit,
+            )
 
         fallback_keywords = extract_fallback_keywords(question, keywords)
         if not fallback_keywords:
-            return []
+            return semantic_results[:limit]
 
         related_fallback_keywords = []
         if neo4j_driver is not None:
@@ -57,14 +69,202 @@ def search_archive_records_for_question(
             fallback_keywords,
             related_fallback_keywords,
         )
-        return search_archive_records_by_keywords(
+        fallback_results = search_archive_records_by_keywords(
             fallback_search_keywords,
             limit=limit,
             body_limit=body_limit,
         )
+        return merge_archive_search_results(
+            semantic_results,
+            fallback_results,
+            limit=limit,
+        )
     finally:
         if neo4j_driver is not None:
             neo4j_driver.close()
+
+
+def search_archive_records_by_semantic_query(
+    semantic_query: str,
+    limit: int = 5,
+    body_limit: int = 1800,
+) -> list[dict[str, Any]]:
+    """pgvector record_embeddings에서 content 의미 유사도가 높은 기록을 찾는다."""
+    cleaned_query = semantic_query.strip()
+    if not cleaned_query:
+        return []
+
+    query_vector = embed_semantic_query(cleaned_query)
+    if not query_vector:
+        return []
+
+    rows = fetch_semantic_search_rows(
+        query_vector,
+        limit=limit,
+        preview_length=body_limit,
+        min_similarity=get_semantic_min_similarity(),
+    )
+    records = []
+    for row in rows:
+        record = build_record_from_embedding_row(row, body_limit=body_limit)
+        if not record:
+            continue
+
+        records.append(record)
+
+    return records
+
+
+def embed_semantic_query(query: str) -> list[float]:
+    """검색 문장을 저장된 record_embeddings와 같은 모델의 query 벡터로 바꾼다."""
+    model_name = get_embedding_model_name()
+    if not model_name:
+        return []
+
+    try:
+        model = get_embedding_model(model_name)
+        vector = model.encode(
+            f"query: {query}",
+            normalize_embeddings=True,
+            show_progress_bar=False,
+        )
+        values = [float(value) for value in vector.tolist()]
+    except Exception:
+        return []
+
+    expected_dimension = get_embedding_output_dimension()
+    if len(values) != expected_dimension:
+        return []
+
+    return values
+
+
+def get_embedding_model_name() -> str:
+    """archive 의미 검색에 사용할 임베딩 모델명을 읽는다."""
+    return os.getenv(
+        "ARCHIVE_EMBEDDING_MODEL_NAME",
+        "intfloat/multilingual-e5-base",
+    ).strip()
+
+
+def get_embedding_output_dimension() -> int:
+    """archive 의미 검색 임베딩 차원을 읽는다."""
+    return int(os.getenv("ARCHIVE_EMBEDDING_OUTPUT_DIMENSION", "768"))
+
+
+def get_semantic_min_similarity() -> float:
+    """archive 의미 검색 결과로 인정할 최소 유사도를 읽는다."""
+    return float(os.getenv("ARCHIVE_SEMANTIC_MIN_SIMILARITY", "0.5"))
+
+
+@lru_cache(maxsize=1)
+def get_embedding_model(model_name: str) -> Any:
+    """동일 프로세스에서 임베딩 모델을 재사용한다."""
+    from sentence_transformers import SentenceTransformer
+
+    return SentenceTransformer(model_name)
+
+
+def fetch_semantic_search_rows(
+    query_vector: list[float],
+    limit: int,
+    preview_length: int,
+    min_similarity: float,
+) -> list[tuple[Any, ...]]:
+    """record_embeddings.content 청크의 embedding과 query vector를 비교한다."""
+    vector_literal = vector_to_sql_literal(query_vector)
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    source_table,
+                    source_id,
+                    chunk_index,
+                    title,
+                    LEFT(content, %s) AS content_preview,
+                    1 - (embedding <=> %s::vector) AS similarity
+                FROM record_embeddings
+                WHERE 1 - (embedding <=> %s::vector) >= %s
+                ORDER BY embedding <=> %s::vector
+                LIMIT %s
+                """,
+                [
+                    preview_length,
+                    vector_literal,
+                    vector_literal,
+                    min_similarity,
+                    vector_literal,
+                    limit,
+                ],
+            )
+            return cursor.fetchall()
+    except Exception:
+        return []
+
+
+def build_record_from_embedding_row(
+    row: tuple[Any, ...],
+    body_limit: int,
+) -> dict[str, Any]:
+    """record_embeddings row를 기존 archive 검색 결과 dict로 변환한다."""
+    source_table = str(row[0])
+    source_id = int(row[1])
+    record_type = get_record_type_for_source_table(source_table)
+    if not record_type:
+        return {}
+
+    try:
+        record = get_archive_record(record_type, source_id, body_limit=body_limit)
+    except ObjectDoesNotExist:
+        return {}
+
+    similarity = float(row[5])
+    record["score"] = similarity
+    record["semantic_similarity"] = similarity
+    record["semantic_chunk_index"] = int(row[2])
+    record["semantic_preview"] = str(row[4] or "").strip()
+    return record
+
+
+def get_record_type_for_source_table(source_table: str) -> str:
+    """임베딩 원본 테이블명을 archive record type으로 바꾼다."""
+    if source_table == HorrorStory._meta.db_table:
+        return "horror_story"
+
+    elif source_table == MythEntity._meta.db_table:
+        return "myth_entity"
+
+    elif source_table == DcinsidePost._meta.db_table:
+        return "dcinside_post"
+
+    return ""
+
+
+def merge_archive_search_results(
+    *result_groups: list[dict[str, Any]],
+    limit: int,
+) -> list[dict[str, Any]]:
+    """semantic 결과를 우선하고 키워드 결과를 뒤에 보강해 중복 없이 합친다."""
+    merged_results = []
+    seen_keys = set()
+    for result_group in result_groups:
+        for record in result_group:
+            record_key = (record.get("type"), record.get("id"))
+            if record_key in seen_keys:
+                continue
+
+            merged_results.append(record)
+            seen_keys.add(record_key)
+            if len(merged_results) >= limit:
+                return merged_results
+
+    return merged_results
+
+
+def vector_to_sql_literal(vector: list[float]) -> str:
+    """Python float 리스트를 pgvector literal 문자열로 변환한다."""
+    return "[" + ",".join(f"{value:.8f}" for value in vector) + "]"
 
 
 def get_random_archive_suggestions(limit: int = 3, body_limit: int = 40) -> list[str]:
@@ -418,6 +618,17 @@ def get_archive_record(record_type: str, record_id: int, body_limit: int = 1800)
             "body": make_preview(superstition.content, limit=body_limit),
             "regions": clean_regions(superstition.region, superstition.category),
             "type": "superstition",
+            "score": 1,
+        }
+
+    elif record_type == "dcinside_post":
+        post = DcinsidePost.objects.get(id=record_id)
+        return {
+            "id": post.id,
+            "name": post.title,
+            "body": make_preview(post.content, limit=body_limit),
+            "regions": clean_regions(post.region, post.get_category_display()),
+            "type": "dcinside_post",
             "score": 1,
         }
 
