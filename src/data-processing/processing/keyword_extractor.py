@@ -255,6 +255,41 @@ def extract_thering_keywords(
     )
 
 
+def extract_dcinside_keywords(
+    title: str,
+    cleaned_text: str,
+    metadata: dict[str, Any] | None = None,
+    limit: int = 8,
+) -> KeywordResult:
+    """DCInside 글에 맞춰 제목, 분류, 지역, 본문에서 대표 키워드를 추출한다."""
+    metadata = metadata or {}
+
+    candidates: list[str] = []
+    # DCInside는 제목이 없는 글이 많아 본문 앞부분을 임시 제목으로 쓰므로,
+    # 제목 전체 문장을 키워드로 넣지 않고 짧은 핵심어 후보만 사용한다.
+    candidates.extend(extract_korean_terms(title, limit=8))
+    candidates.extend(
+        flatten_values(
+            [
+                metadata.get("category_label"),
+                metadata.get("region"),
+            ]
+        )
+    )
+    candidates.extend(extract_korean_terms(cleaned_text, limit=30))
+
+    keywords = choose_keywords(candidates, limit=limit)
+    basis = (
+        "제목, DCInside 분류 태그, 지역, 본문에서 반복되는 한국어 핵심어를 기준으로 추출했다."
+    )
+
+    return KeywordResult(
+        keywords=keywords,
+        keyword_count=len(keywords),
+        keyword_basis=basis,
+    )
+
+
 def extract_mythology_keywords(
     name: str,
     cleaned_text: str,

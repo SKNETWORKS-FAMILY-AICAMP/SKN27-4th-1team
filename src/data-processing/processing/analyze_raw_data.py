@@ -20,9 +20,10 @@ from typing import Any
 
 
 # 프로젝트 기준 경로를 잡아서 어디에서 실행해도 같은 폴더를 바라보게 한다.
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-RAW_DIR = PROJECT_ROOT / "database" / "raw"
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+DATA_DIR = PROJECT_ROOT / "database" / "data"
 PROCESSED_DIR = PROJECT_ROOT / "database" / "processed"
+EXCLUDED_JSON_FILES = {"misin.json"}
 
 # 기본 분석 결과는 사람이 읽기 쉬운 Markdown으로 저장한다.
 # 구조화된 JSON 분석 결과가 필요할 때만 WRITE_PROFILE_JSON을 True로 바꾼다.
@@ -443,10 +444,10 @@ def main() -> None:
     """원천 JSON 전체를 분석하고 Markdown 보고서를 생성한다."""
     PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
 
-    # raw 폴더의 모든 JSON 파일을 분석 대상으로 삼는다.
-    files = sorted(RAW_DIR.glob("*.json"))
+    # database/data 폴더의 JSON 중 현재 전처리 후보만 분석 대상으로 삼는다.
+    files = sorted(path for path in DATA_DIR.glob("*.json") if path.name not in EXCLUDED_JSON_FILES)
     profile = {
-        "raw_dir": str(RAW_DIR.relative_to(PROJECT_ROOT)),
+        "raw_dir": str(DATA_DIR.relative_to(PROJECT_ROOT)),
         "processed_dir": str(PROCESSED_DIR.relative_to(PROJECT_ROOT)),
         "file_count": len(files),
         "files": [analyze_file(path) for path in files],

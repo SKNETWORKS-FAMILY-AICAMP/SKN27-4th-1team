@@ -206,7 +206,7 @@ def _record_from_model(source: str, obj) -> SourceRecord:
         return SourceRecord(
             source_table=SOURCE_DCINSIDE,
             source_id=obj.id,
-            title=obj.title or "",
+            title="",
             parts=[obj.content or ""],
             metadata={
                 "source": obj.source,
