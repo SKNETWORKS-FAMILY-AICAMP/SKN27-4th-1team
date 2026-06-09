@@ -1,22 +1,22 @@
-from django.db import models
+﻿from django.db import models
 
 
 class HorrorStory(models.Model):
-    """검증된 한국 괴담/도시전설 원천 데이터를 저장한다."""
+    """寃利앸맂 ?쒓뎅 愿대떞/?꾩떆?꾩꽕 ?먯쿇 ?곗씠?곕? ??ν븳??"""
 
-    # source + source_ref_id 조합으로 JSON 재적재 시 중복 저장을 막는다.
+    # source + source_ref_id 議고빀?쇰줈 JSON ?ъ쟻????以묐났 ??μ쓣 留됰뒗??
     source = models.CharField(max_length=100)
     source_ref_id = models.CharField(max_length=100)
     title = models.TextField()
     language = models.CharField(max_length=20, default="ko")
-    # 지역 관계는 Neo4j가 담당하므로 PostgreSQL에는 화면 표시용 문자열만 둔다.
+    # 吏??愿怨꾨뒗 Neo4j媛 ?대떦?섎?濡?PostgreSQL?먮뒗 ?붾㈃ ?쒖떆??臾몄옄?대쭔 ?붾떎.
     region = models.CharField(max_length=100, blank=True)
     url = models.TextField(blank=True)
-    # 원본 JSON에는 없으며 import 단계에서 content 앞부분으로 생성한다.
+    # ?먮낯 JSON?먮뒗 ?놁쑝硫?import ?④퀎?먯꽌 content ?욌?遺꾩쑝濡??앹꽦?쒕떎.
     preview = models.TextField(blank=True)
     content = models.TextField()
     category = models.CharField(max_length=100, blank=True)
-    # 원본 보존이나 추후 확장 필드를 담기 위한 JSON 영역이다.
+    # ?먮낯 蹂댁〈?대굹 異뷀썑 ?뺤옣 ?꾨뱶瑜??닿린 ?꾪븳 JSON ?곸뿭?대떎.
     metadata = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -35,9 +35,9 @@ class HorrorStory(models.Model):
 
 
 class MythEntity(models.Model):
-    """신화/전설/괴이 존재 데이터를 저장한다."""
+    """?좏솕/?꾩꽕/愿댁씠 議댁옱 ?곗씠?곕? ??ν븳??"""
 
-    # 같은 원본 id라도 데이터셋이 달라질 수 있어 source를 함께 저장한다.
+    # 媛숈? ?먮낯 id?쇰룄 ?곗씠?곗뀑???щ씪吏????덉뼱 source瑜??④퍡 ??ν븳??
     source = models.CharField(
         max_length=100,
         default="ultimate_global_mythology_1000",
@@ -50,11 +50,11 @@ class MythEntity(models.Model):
     weakness = models.TextField(blank=True)
     history = models.TextField(blank=True)
     signs = models.TextField(blank=True)
-    # survival_rules는 원본에서 리스트 형태이므로 JSONField로 보존한다.
+    # survival_rules???먮낯?먯꽌 由ъ뒪???뺥깭?대?濡?JSONField濡?蹂댁〈?쒕떎.
     survival_rules = models.JSONField(default=list, blank=True)
     source_site = models.CharField(max_length=100, blank=True)
     source_url = models.TextField(blank=True)
-    # habitats처럼 컬럼으로 고정하지 않은 가변 데이터를 저장한다.
+    # habitats泥섎읆 而щ읆?쇰줈 怨좎젙?섏? ?딆? 媛蹂 ?곗씠?곕? ??ν븳??
     metadata = models.JSONField(default=dict, blank=True)
 
     class Meta:
@@ -71,13 +71,13 @@ class MythEntity(models.Model):
 
 
 class Superstition(models.Model):
-    """misin.json의 미신/금기 문장을 원문 그대로 저장한다."""
+    """misin.json??誘몄떊/湲덇린 臾몄옣???먮Ц 洹몃?濡???ν븳??"""
 
-    # taboos로 구조화하지 않고 superstitions에 단순 문장으로 저장한다.
+    # taboos濡?援ъ“?뷀븯吏 ?딄퀬 superstitions???⑥닚 臾몄옣?쇰줈 ??ν븳??
     source = models.CharField(max_length=100, default="misin")
     source_ref_id = models.CharField(max_length=100)
     content = models.TextField()
-    # 현재는 비워두지만, 추후 분류/지역 필터가 필요하면 사용할 수 있다.
+    # ?꾩옱??鍮꾩썙?먯?留? 異뷀썑 遺꾨쪟/吏???꾪꽣媛 ?꾩슂?섎㈃ ?ъ슜?????덈떎.
     category = models.CharField(max_length=100, blank=True)
     region = models.CharField(max_length=100, blank=True)
     metadata = models.JSONField(default=dict, blank=True)
@@ -96,10 +96,10 @@ class Superstition(models.Model):
 
 
 class DcinsidePost(models.Model):
-    """DCInside 공포 게시판에서 수집한 외부 게시글을 저장한다.
+    """DCInside 怨듯룷 寃뚯떆?먯뿉???섏쭛???몃? 寃뚯떆湲????ν븳??
 
-    사용자가 직접 작성하는 열린 게시판 글은 post.Post가 담당한다.
-    이 모델은 외부 수집 데이터를 분리해서 보관하고, 필요하면 pgvector 검색 대상으로도 사용한다.
+    ?ъ슜?먭? 吏곸젒 ?묒꽦?섎뒗 ?대┛ 寃뚯떆??湲? post.Post媛 ?대떦?쒕떎.
+    ??紐⑤뜽? ?몃? ?섏쭛 ?곗씠?곕? 遺꾨━?댁꽌 蹂닿??섍퀬, ?꾩슂?섎㈃ pgvector 寃????곸쑝濡쒕룄 ?ъ슜?쒕떎.
     """
 
     CATEGORY_CHOICES = [
@@ -107,19 +107,22 @@ class DcinsidePost(models.Model):
         ("CREATION", "창작담"),
     ]
 
-    # 수집 출처와 원본 식별값이다.
-    # 두 값을 unique로 묶어 import 스크립트를 반복 실행해도 중복 저장되지 않게 한다.
+    # ?섏쭛 異쒖쿂? ?먮낯 ?앸퀎媛믪씠??
+    # ??媛믪쓣 unique濡?臾띠뼱 import ?ㅽ겕由쏀듃瑜?諛섎났 ?ㅽ뻾?대룄 以묐났 ??λ릺吏 ?딄쾶 ?쒕떎.
     source = models.CharField(max_length=100, default="dcinside_gongpow")
     source_ref_id = models.CharField(max_length=100)
 
-    # DCInside 원본 title은 [경험], [창작] 같은 태그인 경우가 많다.
-    # import 단계에서 태그를 category로 변환하고, 화면용 title은 본문 앞부분으로 만든다.
+    # DCInside ?먮낯 title? [寃쏀뿕], [李쎌옉] 媛숈? ?쒓렇??寃쎌슦媛 留롫떎.
+    # import ?④퀎?먯꽌 ?쒓렇瑜?category濡?蹂?섑븯怨? ?붾㈃??title? 蹂몃Ц ?욌?遺꾩쑝濡?留뚮뱺??
     category = models.CharField(max_length=15, choices=CATEGORY_CHOICES)
-    title = models.CharField(max_length=200)
-    region = models.CharField(max_length=100, default="한국")
+    region = models.CharField(max_length=100, default="?쒓뎅")
     content = models.TextField()
 
-    # 원본 title 태그처럼 컬럼으로 고정하지 않을 보조 정보를 보관한다.
+    # ?먮낯 title ?쒓렇泥섎읆 而щ읆?쇰줈 怨좎젙?섏? ?딆쓣 蹂댁“ ?뺣낫瑜?蹂닿??쒕떎.
+    # 전처리 단계에서 뽑은 키워드 목록을 JSON 배열 형태로 저장한다.
+    # 별도 키워드 테이블을 만들지 않고 DBeaver에서 바로 확인하기 위한 컬럼이다.
+    keywords = models.JSONField(default=list, blank=True)
+
     metadata = models.JSONField(default=dict, blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -134,4 +137,4 @@ class DcinsidePost(models.Model):
         ]
 
     def __str__(self):
-        return f"[{self.get_category_display()}] {self.title}"
+        return f"[{self.get_category_display()}] {self.content[:30]}"
