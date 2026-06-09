@@ -19,7 +19,7 @@ ORDER BY id
 LIMIT 20;
 
 -- DCInside 수집 게시글: 목격담/창작담 초기 데이터
-SELECT id, category, title, region, LEFT(content, 120) AS content_preview, created_at
+SELECT id, category, region, LEFT(content, 120) AS content_preview, created_at
 FROM dcinside_posts
 WHERE is_active = true
 ORDER BY id DESC
