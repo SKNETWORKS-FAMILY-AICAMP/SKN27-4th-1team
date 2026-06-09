@@ -54,6 +54,20 @@ CREATE TABLE superstitions (
     UNIQUE (source, source_ref_id)
 );
 
+CREATE TABLE dcinside_posts (
+    id BIGSERIAL PRIMARY KEY,
+    source VARCHAR(100) NOT NULL DEFAULT 'dcinside_gongpow',
+    source_ref_id VARCHAR(100) NOT NULL,
+    category VARCHAR(15) NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    region VARCHAR(100) DEFAULT '한국',
+    content TEXT NOT NULL,
+    metadata JSONB DEFAULT '{}'::jsonb,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMPTZ,
+    UNIQUE (source, source_ref_id)
+);
+
 CREATE TABLE generated_stories (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL REFERENCES auth_user(id),

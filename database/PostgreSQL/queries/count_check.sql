@@ -9,6 +9,9 @@ UNION ALL
 SELECT 'superstitions' AS table_name, COUNT(*) AS row_count
 FROM superstitions
 UNION ALL
+SELECT 'dcinside_posts' AS table_name, COUNT(*) AS row_count
+FROM dcinside_posts
+UNION ALL
 SELECT 'generated_stories' AS table_name, COUNT(*) AS row_count
 FROM generated_stories
 UNION ALL
@@ -29,6 +32,13 @@ FROM post_bookmarks
 ORDER BY table_name;
 
 -- Expected initial seed counts:
--- horror_stories: 224
--- myth_entities: 1016
+-- horror_stories: 325
+-- myth_entities: 604
 -- superstitions: 214
+-- dcinside_posts: 분류 가능한 DCInside row 수
+
+-- DCInside category distribution.
+SELECT category, COUNT(*) AS row_count
+FROM dcinside_posts
+GROUP BY category
+ORDER BY category;
