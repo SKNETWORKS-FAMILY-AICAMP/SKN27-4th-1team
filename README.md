@@ -29,7 +29,7 @@
 
 ### 프로젝트 개요
 
-Django 기반의 괴담 및 금기 아카이브 웹 서비스로, PostgreSQL과 Neo4j를 활용해 지역별 괴담 정보와 관계 데이터를 제공하고 LLM을 통해 새로운 기록 창작을 지원하는 플랫폼입니다.
+Django 기반의 괴담 및 금기 아카이브 플랫폼으로, 다중 데이터베이스와 AI 기술을 결합하여 몰입감 있는 사용자 경험을 제공합니다. 사용자 정보 및 게시글 등 서비스 핵심 데이터는 PostgreSQL로 안정적으로 관리하며, 지역별 장소와 괴담 사이의 관계 정보는 Neo4j를 활용해 구조적으로 탐색할 수 있도록 구현했습니다. 또한 LLM을 연동하여 사용자가 직접 키워드를 입력해 새로운 괴담을 창작하고 공유할 수 있는 기능도 지원합니다.
 
 ### 개발 배경
 
@@ -93,24 +93,40 @@ Django 기반의 괴담 및 금기 아카이브 웹 서비스로, PostgreSQL과 
 | 팀원 | 담당 업무 (WBS 기준) |
 |---|---|
 | **김민경** | 기획서/요구사항 정의서 작성, 폴더/프로젝트 구조 설계, `archive` 앱 구현(괴담 챗봇, 자료실), 최종 코드 통합 |
-| **권환성** | 화면설계서 작성, 프론트엔드(HTML/CSS/JS) 구현, `accounts` 앱 구현(로그인, 회원가입, 로그아웃 Session, 마이페이지, 회원탈퇴) |
-| **김한솔** | 괴담 데이터셋 확보, GraphDB 스키마 정의 및 Neo4j 구현, `regions` 앱 구현 |
+| **권환성** | 프로젝트 화면 UI 설계, `accounts` 앱 구현(로그인, 회원가입, 로그아웃 Session, 마이페이지, 회원탈퇴), `archive`앱 금기자료실 구현 |
+| **김한솔** | 데이터셋 수집 및 전처리, GraphDB 설계, Neo4j 적재, 벡터 임베딩, `regions` 앱 구현 |
 | **박송원** | 괴담 데이터셋 확보, LLM Prompt 작성 및 연동, `generator` 앱 구현(AI 신규 기록 창작) |
-| **이재강** | 수집 데이터 전처리, PostgreSQL 기반 ERD 설계 및 pgvector 임베딩, `post` 앱 구현(열린 게시판 작성/수정/삭제) |
+| **이재강** | 데이터 전처리, PostgreSQL 기반 ERD 설계 및 pgvector 임베딩, `post` 앱 구현(열린 게시판 작성/수정/삭제) |
 
 ---
 
 ## 3. 기술 스택
 
-| 분류 | 기술 |
-|---|---|
-| Language | Python 3.12, JavaScript, HTML/CSS |
-| Backend Framework | Django |
-| RDB | PostgreSQL |
-| GraphDB | Neo4j |
-| AI / LLM | Groq |
-| Infra | Docker, Docker Compose |
-| UI/UX | Django Templates, Custom CSS (BBS/터미널형), JS (flicker 효과) |
+### 💻 Language
+<p>
+  <img src="https://img.shields.io/badge/Python_3.12-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python" />
+  <img src="https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black" alt="JavaScript" />
+  <img src="https://img.shields.io/badge/HTML5-E34F26?style=for-the-badge&logo=html5&logoColor=white" alt="HTML5" />
+  <img src="https://img.shields.io/badge/CSS3-1572B6?style=for-the-badge&logo=css3&logoColor=white" alt="CSS3" />
+</p>
+
+### ⚙️ Framework & Database
+<p>
+  <img src="https://img.shields.io/badge/Django-092E20?style=for-the-badge&logo=django&logoColor=white" alt="Django" />
+  <img src="https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL" />
+  <img src="https://img.shields.io/badge/Neo4j-008CC1?style=for-the-badge&logo=neo4j&logoColor=white" alt="Neo4j" />
+</p>
+
+### 🚀 AI & Infra
+<p>
+  <img src="https://img.shields.io/badge/Groq-F55036?style=for-the-badge" alt="Groq" />
+  <img src="https://img.shields.io/badge/Ollama-000000?style=for-the-badge&logo=ollama&logoColor=white" alt="Ollama" />
+  <img src="https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker" />
+</p>
+
+### 🎨 UI/UX
+- **Django Templates**: 서버 사이드 렌더링을 통한 뷰 구성
+- **JavaScript (Flicker 효과)**: 무작위 화면 글리치 및 오디오 효과 연출로 오컬트 몰입감 극대화
 
 ---
 
@@ -237,14 +253,6 @@ static/css, static/js, images 적용
 - 로그인 Form 제공
 - 인증 실패 메시지 표시
 - 로그인 처리 중 문구 출력
-
-#### 회원가입
-- URL: /accounts/signup/
-- Template: templates/accounts/signup.html
-- 회원가입 Form 제공
-- 아이디, 이메일, 비밀번호, 비밀번호 확인 입력
-- 입력값 검증 후 회원가입 처리
-- 회원가입 성공 시 자동 로그인
 
 #### 나의 보관함
 <div align="center">
