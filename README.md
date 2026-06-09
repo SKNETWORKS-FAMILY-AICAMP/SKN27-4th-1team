@@ -36,11 +36,11 @@ Django 기반의 괴담 및 금기 아카이브 플랫폼으로, 다중 데이�
 
 본 프로젝트는 다음 문제를 해결하기 위해 설계했습니다.
 
-| 문제 | 해결 방향 |
-|---|---|
-| 파편화된 지역 괴담/금기 정보 탐색의 어려움 | PostgreSQL 기반 데이터베이스 구축 및 통합 아카이브 제공 |
-| 괴담, 장소, 괴이의 복잡한 관계성 파악 한계 | Neo4j GraphDB 기반 지역-장소-괴담 관계 시각화 및 탐색 |
-| 괴담 창작의 어려움 | LLM 기반 AI 괴담 생성기 및 RAGAS 평가 연동 |
+| 문제                                       | 해결 방향                                                              |
+| ------------------------------------------ | ---------------------------------------------------------------------- |
+| 파편화된 지역 괴담/금기 정보 탐색의 어려움 | PostgreSQL 기반 데이터베이스 구축 및 통합 아카이브 제공                |
+| 괴담, 장소, 괴이의 복잡한 관계성 파악 한계 | Neo4j GraphDB 기반 지역-장소-괴담 관계 시각화 및 탐색                  |
+| 괴담 창작의 어려움                         | LLM 기반 AI 괴담 생성기 및 RAGAS 평가 연동                             |
 | 몰입감 있는 콘텐츠 소비를 위한 분위기 부족 | 터미널형 인터페이스 및 글리치 효과, 음향 효과를 통한 독창적 UI/UX 적용 |
 
 ### 프로젝트 목표
@@ -58,6 +58,7 @@ Django 기반의 괴담 및 금기 아카이브 플랫폼으로, 다중 데이�
 ### 팀명
 
 **[괴이바]**
+
 <table align="center" width="100%">
   <tr>
     <td align="center"><img src="docs/img/minkyungimg.png" width="110" /></td>
@@ -89,19 +90,20 @@ Django 기반의 괴담 및 금기 아카이브 플랫폼으로, 다중 데이�
   </tr>
 </table>
 
-| 팀원 | 담당 업무|
-|---|---|
-| **김민경** | 기획서/요구사항 정의서 작성, 폴더/프로젝트 구조 설계, `archive` 앱 구현(`TTS`, 괴담 챗봇, 자료실), 최종 코드 통합 |
+| 팀원       | 담당 업무                                                                                                                        |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| **김민경** | 기획서/요구사항 정의서 작성, 폴더/프로젝트 구조 설계, `archive` 앱 구현(`TTS`, 괴담 챗봇, 자료실), 최종 코드 통합                |
 | **권환성** | 프로젝트 화면 UI 설계, `accounts` 앱 구현(로그인, 회원가입, 로그아웃 Session, 마이페이지, 회원탈퇴), `archive`앱 금기자료실 구현 |
-| **김한솔** | 데이터셋 수집 및 전처리, GraphDB 설계, Neo4j 적재, 벡터 임베딩, `regions` 앱 구현 |
-| **박송원** | 괴담 데이터셋 확보, LLM Prompt 작성 및 연동, `generator` 앱 구현(AI 신규 기록 창작) |
-| **이재강** | 데이터 전처리, PostgreSQL 기반 ERD 설계 및 pgvector 임베딩, `post` 앱 구현(열린 게시판 작성/수정/삭제) |
+| **김한솔** | 데이터셋 수집 및 전처리, GraphDB 설계, Neo4j 적재, 벡터 임베딩, `regions` 앱 구현                                                |
+| **박송원** | 괴담 데이터셋 확보, LLM Prompt 작성 및 연동, `generator` 앱 구현(AI 신규 기록 창작)                                              |
+| **이재강** | 데이터 전처리, PostgreSQL 기반 ERD 설계 및 pgvector 임베딩, `post` 앱 구현(열린 게시판 작성/수정/삭제)                           |
 
 ---
 
 ## 3. 기술 스택
 
 ### 💻 Language
+
 <p>
   <img src="https://img.shields.io/badge/Python_3.12-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python" />
   <img src="https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black" alt="JavaScript" />
@@ -110,6 +112,7 @@ Django 기반의 괴담 및 금기 아카이브 플랫폼으로, 다중 데이�
 </p>
 
 ### ⚙️ Framework & Database
+
 <p>
   <img src="https://img.shields.io/badge/Django-092E20?style=for-the-badge&logo=django&logoColor=white" alt="Django" />
   <img src="https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL" />
@@ -117,6 +120,7 @@ Django 기반의 괴담 및 금기 아카이브 플랫폼으로, 다중 데이�
 </p>
 
 ### 🚀 AI & Infra
+
 <p>
   <img src="https://img.shields.io/badge/Groq-F55036?style=for-the-badge" alt="Groq" />
   <img src="https://img.shields.io/badge/Ollama-000000?style=for-the-badge&logo=ollama&logoColor=white" alt="Ollama" />
@@ -124,6 +128,7 @@ Django 기반의 괴담 및 금기 아카이브 플랫폼으로, 다중 데이�
 </p>
 
 ### 🎨 UI/UX
+
 - **Django Templates**: 서버 사이드 렌더링을 통한 뷰 구성
 - **JavaScript (Flicker 효과)**: 무작위 화면 글리치 및 오디오 효과 연출로 오컬트 몰입감 극대화
 
@@ -149,6 +154,7 @@ SKN27-4th-1team/
 ```
 
 ### 아키텍처 특징 (View-Service 분리)
+
 - **View (`views.py`)**: 사용자 요청 수신, 폼 검증, 권한 확인, 렌더링/리다이렉트 등 HTTP 흐름만 제어합니다.
 - **Service (`services.py`)**: 실제 비즈니스 로직(DB 쿼리, 모델 저장/수정/삭제, LLM API 호출, Neo4j 연동 등)은 각 앱의 `services.py`로 분리하여 앱 간 결합도를 낮추고 재사용성을 높였습니다.
 
@@ -178,9 +184,11 @@ static/css, static/js, images 적용
 사용자 화면 출력
 
 ```
+
 ### 주요 페이지 및 UI 구현 특징
 
 #### 메인 페이지
+
 <div align="center">
   <img src="docs/img/index.png" width="760" />
 </div>
@@ -191,6 +199,7 @@ static/css, static/js, images 적용
 - 로그인 상태에 따라 LOGIN / LOGOUT 표시 변경
 
 #### 기록 열람실
+
 <div align="center">
   <img src="docs/img/chatbot.png" width="760" />
 </div>
@@ -202,6 +211,7 @@ static/css, static/js, images 적용
 - 사용자가 입력한 키워드를 기반으로 기록 검색 흐름 구성
 
 #### 금기 자료실
+
 <div align="center">
   <img src="docs/img/archive.png" width="760" />
 </div>
@@ -212,6 +222,7 @@ static/css, static/js, images 적용
 - 오늘의 금기 조회 기능
 
 #### 신규 기록실
+
 <div align="center">
   <img src="docs/img/stroymaker.png" width="760" />
 </div>
@@ -222,6 +233,7 @@ static/css, static/js, images 적용
 - 게시 성공 시 열린 게시판 창작담 탭으로 이동
 
 #### 열린 게시판
+
 <div align="center">
   <img src="docs/img/community.png" width="760" />
 </div>
@@ -232,6 +244,7 @@ static/css, static/js, images 적용
 - 본인 글일 경우 수정/삭제 버튼 표시
 
 #### 지역 정보실
+
 <div align="center">
   <img src="docs/img/region.png" width="760" />
 </div>
@@ -243,6 +256,7 @@ static/css, static/js, images 적용
 - 지역 기반 괴담/장소/관계 탐색 화면으로 사용
 
 #### 로그인
+
 <div align="center">
   <img src="docs/img/login.png" width="760" />
 </div>
@@ -254,6 +268,7 @@ static/css, static/js, images 적용
 - 로그인 처리 중 문구 출력
 
 #### 나의 보관함
+
 <div align="center">
   <img src="docs/img/mypage.png" width="760" />
 </div>
@@ -268,6 +283,7 @@ static/css, static/js, images 적용
 ### Static 파일 구성
 
 static/css/styles.css
+
 - 전체 페이지 공통 스타일
 - BBS/터미널형 UI
 - 로그인/회원가입 화면 스타일
@@ -275,21 +291,25 @@ static/css/styles.css
 - 내부 스크롤 영역 제어
 
 static/js/flicker.js
+
 - 화면 글리치 효과
 - 랜덤 간격으로 page-flicker 클래스 적용
 - 괴이 이미지 랜덤 위치 노출
 
 static/images/
+
 - 메인 배경 이미지
 - 지도 이미지
 - 글리치 효과 이미지
 
 static/audio/
+
 - 문 열림/닫힘 효과음
 - 공포 루프 사운드
 - 글리치 효과음
 
 static/fonts/
+
 - DungGeunMo.ttf 픽셀 폰트
 
 ---
@@ -300,20 +320,22 @@ static/fonts/
 
 ### 주요 데이터 구조
 
-| 테이블 | 데이터 종류 | 역할 |
-|---|---|---|
-| `horror_stories` | 검증 한국 괴담/도시전설 | 괴담 아카이브 원본 데이터 |
-| `myth_entities` | 세계 괴이/신화 존재 | 신화 및 요괴 원본 데이터 |
-| `superstitions` | 미신 및 금기 문장 | 금기 자료실 정보 제공 |
-| `dcinside_posts` | 외부 수집 공포 썰 | 유저 작성글과 분리된 외부 검색용 데이터 |
-| `post_post` / `post_like` | 열린 게시판 데이터 | 실제 사용자가 작성한 목격담/창작담 및 추천 관리 |
-| `record_embeddings` | pgvector 임베딩 청크 | 의미 기반 검색용 768차원 임베딩 데이터 |
+| 테이블                    | 데이터 종류             | 역할                                            |
+| ------------------------- | ----------------------- | ----------------------------------------------- |
+| `horror_stories`          | 검증 한국 괴담/도시전설 | 괴담 아카이브 원본 데이터                       |
+| `myth_entities`           | 세계 괴이/신화 존재     | 신화 및 요괴 원본 데이터                        |
+| `superstitions`           | 미신 및 금기 문장       | 금기 자료실 정보 제공                           |
+| `dcinside_posts`          | 외부 수집 공포 썰       | 유저 작성글과 분리된 외부 검색용 데이터         |
+| `post_post` / `post_like` | 열린 게시판 데이터      | 실제 사용자가 작성한 목격담/창작담 및 추천 관리 |
+| `record_embeddings`       | pgvector 임베딩 청크    | 의미 기반 검색용 768차원 임베딩 데이터          |
 
 ### 외부 수집 데이터 전처리 및 적재
+
 - DCInside 수집글(`dcinside_posts`)은 원본의 제목(태그)에 따라 `CREATION`(창작), `WITNESS`(경험/사건) 등으로 카테고리를 분류하여 적재합니다.
 - 외부 수집 데이터와 실제 사용자가 작성한 커뮤니티 게시글(`post_post`)의 DB 테이블을 엄격하게 분리하여 무결성과 유지보수성을 높였습니다.
 
 ### pgvector 기반 의미 검색 파이프라인
+
 - `intfloat/multilingual-e5-base` 모델을 사용하여 각 테이블 본문을 문장/문단 단위로 청킹(Chunking)한 뒤 768차원의 벡터로 임베딩합니다.
 - 생성된 임베딩 데이터는 `record_embeddings`라는 독립된 테이블에 저장되며, 검색 시 코사인 거리(Cosine Distance)를 계산하여 가장 유사한 `horror_stories`, `myth_entities`, `dcinside_posts` 기록을 반환합니다.
 - 데이터 갱신이 잦은 사용자 게시글(`post_post`)이나 문장이 짧은 미신(`superstitions`)은 임베딩 대상에서 의도적으로 제외하여 시스템 리소스 효율을 최적화했습니다.
@@ -330,14 +352,14 @@ static/fonts/
 
 ### 주요 노드
 
-| 노드 | 설명 |
-|---|---|
-| `Story` | DC인사이드 공포 목격담, 한국 괴담 |
-| `Legend` | 세계 신화/요괴 설명 |
-| `Origin` | 국가/지역 (한국, 일본, 인도 등) |
-| `Region` | 한국 세부 지역 (서울, 부산 등) |
-| `Place` | 구체적 장소 |
-| `Location` | 장소 유형 (학교, 병원 등) |
+| 노드       | 설명                              |
+| ---------- | --------------------------------- |
+| `Story`    | DC인사이드 공포 목격담, 한국 괴담 |
+| `Legend`   | 세계 신화/요괴 설명               |
+| `Origin`   | 국가/지역 (한국, 일본, 인도 등)   |
+| `Region`   | 한국 세부 지역 (서울, 부산 등)    |
+| `Place`    | 구체적 장소                       |
+| `Location` | 장소 유형 (학교, 병원 등)         |
 
 ### 주요 관계 구조
 
@@ -360,9 +382,11 @@ static/fonts/
 Django View를 거쳐 드래그 및 줌(Zoom) 기능이 지원되는 반응형 지도 화면을 렌더링하고, JavaScript `fetch()`와 Cypher Query 기반 API 비동기 조회를 통해 그래프 데이터를 실시간 가공하여 동적 폴더 트리 구조로 제공합니다.
 
 ### 1) 데이터 흐름
+
 `/regions/api/list/` API 호출(초기 핀 배치 및 건수 집계) → 지도 핀 클릭 또는 맵 조작 → `/regions/api/cities/?region={지역명}` API 비동기(`fetch`) 요청 → `regions.services`에서 Neo4j 조회 → 조건부 하위 장소 폴더 트리 렌더링
 
 ### 2) 주요 기능 및 UI 인터랙션
+
 - **초기 핀 자동 배치**: 페이지 진입 시 Neo4j에서 총 괴담 수(`place_count`)를 집계하여, 지리적 좌표 기반 맵 위에 액티브 핀 버튼을 매핑합니다.
 - **드래그 & 줌(Pan & Zoom)**: 바닐라 자바스크립트를 활용한 포인터 이벤트 제어로 스케일(`scale`)과 좌표값(`translate`)을 변환하여 자유로운 탐색이 가능합니다.
 - **조건부 폴더 트리**:
@@ -371,6 +395,7 @@ Django View를 거쳐 드래그 및 줌(Zoom) 기능이 지원되는 반응형 �
 - **괴담 본문 상세 모달**: 리스트 클릭 시 원본 본문을 호출하며, 데이터 내 불필요한 스크립트 노이즈(CSS keyframes 등)를 필터링하는 전처리가 적용되어 있습니다.
 
 ### 3) 구현 표준 및 아키텍처 원칙
+
 - **GraphDB 결합 구조**: 지리적 상하 관계(`HAS_CITY`)와 출처 기원 관계(`ORIGINATED_IN`)를 동시에 활용하는 조건부 라우팅 Cypher 쿼리 설계
 - **서버-클라이언트 분산 설계**: View는 단순 파싱을 수행하고 실제 Neo4j 트랜잭션 처리는 `regions.services` 계층으로 완전 분리하여 캡슐화 준수
 - **다이나믹 UX 구성**: HTML 리프레시 없는 부드러운 전환을 위해 클라이언트 중심의 동적 DOM 제어 적용
@@ -392,6 +417,7 @@ Django View를 거쳐 드래그 및 줌(Zoom) 기능이 지원되는 반응형 �
 기록 열람실 챗봇은 단순한 키워드 검색을 넘어, 사용자의 의도를 분석하고 생성형 AI를 활용하여 몰입감 있는 대화형 검색을 제공합니다.
 
 ### 전체 대화 흐름
+
 1. **의도 분류**: 사용자의 입력을 받아 `괴담 조회`, `일반 대화`, `낭독(TTS) 요청` 세 가지 의도 중 하나로 분류합니다.
 2. **DB 검색 및 선택**: `괴담 조회` 의도로 판별 시, PostgreSQL DB(`HorrorStory`, `MythEntity`, `Superstition`)에서 관련 기록을 검색하고 LLM을 통해 스산한 선택 유도문을 생성하여 반환합니다.
 3. **괴담 재구성 및 평가**: 사용자가 목록에서 기록을 선택하면, 원본 기록을 바탕으로 LLM 파이프라인(생성 → 평가 → 1회 수정)을 거쳐 괴담을 재구성합니다. 평가는 키워드, 일관성, 문체, 분위기를 기준으로 진행됩니다.
@@ -443,6 +469,7 @@ Django Session 저장
 ### 구현 기능
 
 회원가입
+
 - 아이디 중복 검사
 - 비밀번호 8자 이상 검사
 - 비밀번호 확인 일치 검사
@@ -450,6 +477,7 @@ Django Session 저장
 - next 파라미터가 있으면 안전한 URL 검증 후 이동
 
 로그인
+
 - 아이디 / 비밀번호 기반 인증
 - 로그인 성공 시 Session 생성
 - 로그인 실패 시 에러 메시지 출력
@@ -457,10 +485,12 @@ Django Session 저장
 - 비로그인 사용자가 보호 페이지 접근 시 로그인 페이지로 이동
 
 로그아웃
+
 - 현재 Session 삭제
 - 메인 페이지로 리다이렉트
 
 마이페이지 보호
+
 - @login_required 사용
 - 비로그인 접근 시 /accounts/login/?next=/accounts/mypage/ 이동
 - 로그인 후 원래 목적지로 복귀
@@ -469,23 +499,58 @@ Django Session 저장
 
 ## 12. 테스트 및 평가
 
-| 항목 | 검증 내용 |
-|---|---|
-| 인증 및 세션 | 회원가입 성공 시 자동 로그인 연계 동작 검증, 세션 만료 및 로그아웃 동작 검증 |
-| Service 함수화 | View에서 직접 DB 쿼리를 수행하지 않고, 순수 비즈니스 로직(Service)의 리턴값을 받아오는지 확인 |
-| API 및 비동기 | 금기 자료실의 `fetch` 기반 API 통신(`archive/api/taboos/`) 및 검색 정상 동작 확인 |
-| 동적 UI 테스트 | `flicker.js` 등 공포 연출 UI 스크립트 충돌 방지 및 오디오 리소스 정상 재생 검증 |
+평가는 단일 기능의 동작 여부만 보지 않고 인증/세션, 정적 레이아웃 유지, 외부 API 및 AI 연동, 최종 게시판 매핑 등의 흐름을 분리해 확인했습니다.
+
+### 주요 평가 기준
+
+| 구분 | 평가 항목 | 통과 기준 |
+|:---|:---|:---|
+| **회원 관리/보안** | 로그인, 회원가입, 로그아웃, 탈퇴 | 정상적인 세션의 생성 및 파기, 폼 에러 노출, CSRF 보안 토큰 작동 확인 |
+| **마이페이지 연동** | 보관함(금기/괴담), 작성 글 연동 | DB 연동을 통한 사용자별 정확한 데이터 바인딩 확인 |
+| **Web UI / Effects** | 글리치 효과, 동적 스크롤, 랜덤 이미지 | 브라우저 에러 없는 정적 파일 연동 및 CSS 레이아웃 유지 연출 |
+| **통합 연동 (E2E)** | 비로그인 제어, Next 파라미터, 게시판 연동 | 페이지 간 유기적인 데이터 매핑 흐름 및 보호된 라우팅 리다이렉트 확인 |
+
+### 대표 테스트 시나리오
+
+| ID | 시나리오명 | 검증 포인트 및 세부 내용 |
+|:---:|:---|:---|
+| **SIGN-01** | 정상 회원가입 및 로그인 | 규칙에 맞는 폼 입력 시 `auth_user` 생성 및 즉시 자동 로그인되어 메인 리다이렉트 |
+| **AUTH-02** | 로그인 실패 처리 | 틀린 계정 정보 입력 시 폼 에러 메시지 노출 및 세션 생성 차단 |
+| **AUTH-03** | CSRF 보안 검증 | 변조되거나 누락된 CSRF 토큰 전송 시 `403 Forbidden` 발생 및 접근 차단 |
+| **MY-02** | 보관함 데이터 매핑 | 마이페이지 접속 시 본인 저장 데이터(`horror_stories`, `superstitions` 연동) 바인딩 |
+| **UI-01** | 글리치 효과 구동 | 랜덤 간격 대기(`flicker.js`) 시 콘솔 에러 없이 무작위 화면 글리치 및 랜덤 괴이 이미지 팝업 연출 |
+| **UI-04** | 컴포넌트 내부 스크롤 | 신규 기록실/금기 자료실에서 리스트 출력 영역만 브라우저 스크롤과 독립적으로 구동 |
+
+### E2E 테스트 (통합 흐름)
+
+| ID | 목적 | 흐름 |
+|:---:|:---|:---|
+| **INT-01** | 비로그인 유저 접근 제한 | 비로그인 상태로 접근 -> `로그인 페이지(?next=)`로 리다이렉트 |
+| **INT-02** | 로그인 후 파라미터 복귀 | 차단 후 로그인 성공 -> 메인 페이지가 아닌 원래 목적지로 자동 이동 |
+| **INT-03** | AI 괴담 창작담 게시판 연동 | 신규 기록실 결과물 -> `게시판 게시` 클릭 -> 커뮤니티 작성 폼으로 유실 없이 매핑 |
+
+### 개발 로드맵 (우선순위)
+
+| ID | 진행 항목 | 상세 내용 |
+|:---:|:---|:---|
+| **P-01** | 인증 및 보안 기반 마련 | `accounts` 회원가입/로그인/세션, CSRF 처리 |
+| **P-02** | 오컬트 UI 연출 적용 | 정적 자산(CSS/JS) 연동 및 `flicker.js` 화면 레이아웃 안정성 점검 |
+| **P-03** | 마이페이지 DB 매핑 | 사용자 정보, 보관함 데이터(`PostgreSQL`) 바인딩 점검 |
+| **P-04** | 컴포넌트 내부 스크롤 | 금기 자료실/신규 기록실 내 대량 텍스트 출력부 독자 스크롤 최적화 |
+| **P-05** | 통합 권한/매핑 점검 | 비로그인 권한 제어 및 `AI 생성기` -> `커뮤니티` 연동 데이터 매핑 흐름 검증 |
 
 ---
 
 ## 13. 기대 효과 및 결론
 
 ### 기대 효과
+
 - **데이터 기반 아카이빙**: 파편화된 지역 괴담과 금기 지식을 효율적으로 탐색할 수 있습니다.
 - **창작 활성화**: 단순 게시판을 넘어 LLM 기반 스토리 생성 기능을 제공하여 유저의 참여도와 콘텐츠 생산력을 극대화합니다.
 - **몰입감 강화**: 웹 기술(JS 글리치, 픽셀 폰트, 오디오 루프 등)을 적절히 혼합하여 기존 서비스들과 차별화된 오싹한 분위기와 재미를 선사합니다.
 
 ### 결론
+
 본 프로젝트는 Django의 풀스택 웹 개발 프레임워크 구조 위에 RDB(PostgreSQL)와 GraphDB(Neo4j)를 하이브리드 형식으로 적용했습니다. 각 데이터 특성에 맞는 DB 구성과 AI 기술의 연계로, 사용자 친화적이고 독창적인 웹서비스 아키텍처를 성공적으로 구현했습니다.
 
 ---
@@ -493,16 +558,21 @@ Django Session 저장
 ## 14. 팀원 회고
 
 ### [김민경]
+
 - [회고 내용 작성]
 
 ### [권환성]
+
 - [회고 내용 작성]
 
 ### [김한솔]
+
 - [회고 내용 작성]
 
 ### [박송원]
+
 - [회고 내용 작성]
 
 ### [이재강]
+
 - [회고 내용 작성]
