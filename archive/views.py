@@ -11,9 +11,11 @@ from .models import Superstition
 from .services.graph import run_archive_chatbot, run_archive_record_chatbot
 from .services.session_state import (
     clear_last_tts_error,
+    get_archive_context,
     get_conversation_history,
     get_last_tts_error,
     get_last_tts_text,
+    save_archive_context,
     save_conversation_history,
     save_last_tts_error,
     save_last_tts_text,
@@ -59,6 +61,70 @@ def make_rate_limit_response(query: str) -> JsonResponse:
     }, status=HTTPStatus.TOO_MANY_REQUESTS)
 
 
+def summarize_archive_record(record: dict) -> dict:
+    """세션에 보관할 archive 기록 요약을 만든다."""
+    regions = record.get('regions', [])
+    if not isinstance(regions, list):
+        regions = []
+
+    return {
+        'id': record.get('id'),
+        'type': record.get('type', ''),
+        'name': record.get('name', ''),
+        'regions': regions,
+    }
+
+
+def build_archive_search_context(
+    previous_context: dict,
+    query: str,
+    chatbot_result: dict,
+) -> dict:
+    """최근 검색 결과를 추천 참조용 context로 만든다."""
+    results = [
+        summarize_archive_record(record)
+        for record in chatbot_result.get('results', [])[:10]
+    ]
+    result_types = []
+    for record in results:
+        record_type = record.get('type', '')
+        if record_type and record_type not in result_types:
+            result_types.append(record_type)
+
+    context = dict(previous_context)
+    context.update({
+        'last_query': query,
+        'last_keywords': chatbot_result.get('keywords', []),
+        'last_query_analysis': chatbot_result.get('query_analysis', {}),
+        'last_results': results,
+        'last_result_types': result_types,
+    })
+    return context
+
+
+def build_archive_selected_context(
+    previous_context: dict,
+    query: str,
+    chatbot_result: dict,
+) -> dict:
+    """최근 선택 기록을 추천 참조용 context로 만든다."""
+    context = dict(previous_context)
+    source_story = chatbot_result.get('source_story', {})
+    if source_story:
+        context['last_selected_record'] = summarize_archive_record(source_story)
+
+    context['last_selected_query'] = query
+    context['last_keywords'] = chatbot_result.get(
+        'keywords',
+        context.get('last_keywords', []),
+    )
+    context['last_query_analysis'] = chatbot_result.get(
+        'query_analysis',
+        context.get('last_query_analysis', {}),
+    )
+    return context
+
+
 def index(request):
     """archive 앱의 첫 진입 화면을 렌더링한다."""
     return render(request, 'archive/index.html')
@@ -80,8 +146,13 @@ def sillok_search_api(request):
         return JsonResponse({'status': 'empty', 'results': []})
 
     conversation_history = get_conversation_history(request)
+    archive_context = get_archive_context(request)
     try:
-        chatbot_result = run_archive_chatbot(query, conversation_history)
+        chatbot_result = run_archive_chatbot(
+            query,
+            conversation_history,
+            archive_context,
+        )
     except DatabaseError:
         return JsonResponse({
             'status': 'error',
@@ -130,12 +201,18 @@ def sillok_search_api(request):
     conversation_history.append({"role": "user", "content": query})
     conversation_history.append({"role": "assistant", "content": llm_response})
     save_conversation_history(request, conversation_history)
+    if results:
+        save_archive_context(
+            request,
+            build_archive_search_context(archive_context, query, chatbot_result),
+        )
 
     return JsonResponse({
         'status': chatbot_result.get('status', 'success'),
         'query': query,
         'intent': chatbot_result.get('intent', ''),
         'keywords': chatbot_result.get('keywords', []),
+        'query_analysis': chatbot_result.get('query_analysis', {}),
         'results': results,
         'source_story': chatbot_result.get('source_story', {}),
         'llm_response': llm_response,
@@ -159,12 +236,14 @@ def sillok_rewrite_api(request):
         }, status=400)
 
     conversation_history = get_conversation_history(request)
+    archive_context = get_archive_context(request)
     try:
         chatbot_result = run_archive_record_chatbot(
             query,
             record_type,
             int(record_id),
             conversation_history,
+            archive_context,
         )
     except ObjectDoesNotExist:
         return JsonResponse({
@@ -193,17 +272,39 @@ def sillok_rewrite_api(request):
         }, status=503)
 
     results = chatbot_result.get('results', [])
-    llm_response = chatbot_result.get('llm_response', '')
+    response_status = chatbot_result.get('status', 'success')
+    llm_response = chatbot_result.get('llm_response', '').strip()
+    if not llm_response:
+        logging.getLogger(__name__).warning(
+            "Archive rewrite returned empty llm_response",
+            extra={
+                "record_type": record_type,
+                "record_id": record_id,
+                "query": query,
+            },
+        )
+        response_status = 'error'
+        llm_response = '선택한 기록을 다시 엮지 못했습니다. 잠시 후 다시 시도해 주세요.'
+
     conversation_history.append({"role": "user", "content": query or record_type})
     conversation_history.append({"role": "assistant", "content": llm_response})
     save_conversation_history(request, conversation_history)
-    save_last_tts_text(request, llm_response)
+    if response_status == 'success':
+        save_last_tts_text(request, llm_response)
+    elif response_status == 'error':
+        save_last_tts_text(request, "")
+
+    save_archive_context(
+        request,
+        build_archive_selected_context(archive_context, query, chatbot_result),
+    )
 
     return JsonResponse({
-        'status': chatbot_result.get('status', 'success'),
+        'status': response_status,
         'query': query,
         'intent': chatbot_result.get('intent', ''),
         'keywords': chatbot_result.get('keywords', []),
+        'query_analysis': chatbot_result.get('query_analysis', {}),
         'results': results,
         'source_story': chatbot_result.get('source_story', {}),
         'llm_response': llm_response,

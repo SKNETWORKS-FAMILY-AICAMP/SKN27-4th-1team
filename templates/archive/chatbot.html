@@ -196,6 +196,12 @@
         saveChatState();
       }
 
+      function formatRecordSummary(item) {
+        const regions = Array.isArray(item.regions) ? item.regions.filter(Boolean) : [];
+        const regionText = regions.length > 0 ? `[${regions.join(", ")}] ` : "";
+        return `${regionText}${item.name}`;
+      }
+
       // Helper to get CSRF Token
       function getCookie(name) {
         let cookieValue = null;
@@ -265,8 +271,7 @@
 
       function isTtsStartCommand(message) {
         const normalizedMessage = normalizeRecordText(message);
-        const commands = ["읽어줘", "읽어", "낭독", "tts", "들려줘", "재생"];
-        return commands.some(command => normalizedMessage.includes(normalizeRecordText(command)));
+        return normalizedMessage === normalizeRecordText("읽어줘");
       }
 
       function isTtsStopCommand(message) {
@@ -442,7 +447,7 @@
 
         stopTts();
         window.lastViewedRecord = item;
-        appendLine("bbs-system", "DECRYPT", `[봉인 해제] ${item.name} (${item.type})`);
+        appendLine("bbs-system", "DECRYPT", `[봉인 해제] ${formatRecordSummary(item)}`);
         appendLine("bbs-bot", "연관 지역", item.regions.join(", "));
         appendLine("bbs-system", "SYS", "선택한 기록을 다시 엮는 중...");
 
@@ -572,7 +577,7 @@
                 appendLine(
                   "bbs-bot",
                   `#${num}`,
-                  `[${item.regions.join(", ")}] ${item.name} (${item.type})`
+                  formatRecordSummary(item)
                 );
               });
             } else {

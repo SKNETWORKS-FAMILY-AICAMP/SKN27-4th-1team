@@ -4,6 +4,7 @@ from typing import Any, Literal, TypedDict
 
 from archive.services.archive_search import (
     get_random_archive_suggestions,
+    get_random_archive_records,
     search_archive_records_for_question,
 )
 from archive.services.keyword_extractor import extract_keywords
@@ -25,6 +26,7 @@ class ArchiveState(TypedDict, total=False):
     intent: str
     keywords: list[str]
     query_analysis: dict[str, Any]
+    archive_context: dict[str, Any]
     conversation_history: list[dict[str, str]]
     search_results: list[dict[str, Any]]
     source_story: dict[str, Any]
@@ -62,12 +64,17 @@ def intent_node(state: ArchiveState) -> dict[str, Any]:
 
 def general_chat_node(state: ArchiveState) -> dict[str, Any]:
     """일반 대화는 검색 없이 챗봇 기본 화자 프롬프트로 바로 응답한다."""
+    question = state.get("question", "")
+    suggestion_topics = []
+    if not is_simple_general_chat(question):
+        suggestion_topics = get_random_archive_suggestions()
+
     prompt = build_general_chat_prompt(
-        question=state.get("question", ""),
+        question=question,
         conversation_history=state.get("conversation_history", []),
-        suggestion_topics=get_random_archive_suggestions(),
+        suggestion_topics=suggestion_topics,
     )
-    response = invoke_llm(prompt)
+    response = invoke_gemma_llm(prompt)
     return {
         "llm_response": response,
         "generated_story": response,
@@ -149,6 +156,125 @@ def decide_after_generate_node(state: ArchiveState) -> Literal["evaluate", "fini
     return "evaluate"
 
 
+def get_empty_generation_message() -> str:
+    """생성 모델이 본문을 돌려주지 않았을 때 사용자에게 보여줄 메시지를 만든다."""
+    return "선택한 기록을 다시 엮지 못했습니다. 잠시 후 다시 시도해 주세요."
+
+
+def get_story_precheck_feedback(story: str) -> str:
+    """LLM 결과가 화면에 보여도 되는 완성된 괴담 형태인지 먼저 확인한다."""
+    text = story.strip()
+    if not text:
+        return "생성 본문이 비어 있습니다."
+
+    first_line = text.splitlines()[0].strip()
+    if first_line.startswith("#") or first_line.startswith("**"):
+        return "제목이나 마크다운 형식이 남아 있습니다."
+
+    if len(first_line) >= 2 and first_line[0].isdigit() and first_line[1] in [".", ")"]:
+        return "번호 목록 형식이 남아 있습니다."
+
+    if len(first_line) >= 3 and first_line[:2].isdigit() and first_line[2] in [".", ")"]:
+        return "번호 목록 형식이 남아 있습니다."
+
+    quote_feedback = get_unclosed_quote_feedback(text)
+    if quote_feedback:
+        return quote_feedback
+
+    normalized_text = text.rstrip().rstrip('"\'”’)]}」』').rstrip(".!?,。！？…")
+    final_token = normalized_text.split()[-1] if normalized_text.split() else ""
+    fragment_feedback = get_trailing_fragment_feedback(normalized_text, final_token)
+    if fragment_feedback:
+        return fragment_feedback
+
+    incomplete_suffixes = [
+        "은",
+        "는",
+        "이",
+        "가",
+        "을",
+        "를",
+        "에",
+        "의",
+        "와",
+        "과",
+        "로",
+        "으로",
+        "에서",
+        "에게",
+        "한테",
+        "부터",
+        "까지",
+        "처럼",
+        "보다",
+        "밖에",
+        "만",
+        "도",
+        "조차",
+        "마저",
+        "랑",
+        "하고",
+        "그리고",
+        "하지만",
+        "근데",
+        "그런데",
+        "그래서",
+        "왜냐하면",
+    ]
+    for suffix in incomplete_suffixes:
+        if final_token == suffix:
+            return "마지막 문장이 중간에서 끊긴 것으로 보입니다."
+
+        if len(final_token) > len(suffix) and final_token.endswith(suffix):
+            return "마지막 문장이 중간에서 끊긴 것으로 보입니다."
+
+    return ""
+
+
+def get_unclosed_quote_feedback(text: str) -> str:
+    """닫히지 않은 따옴표가 있는지 확인한다."""
+    quote_pairs = [
+        ("‘", "’"),
+        ("“", "”"),
+        ("「", "」"),
+        ("『", "』"),
+    ]
+    for opening_quote, closing_quote in quote_pairs:
+        if text.count(opening_quote) > text.count(closing_quote):
+            return "따옴표가 닫히지 않은 미완성 문장입니다."
+
+    if text.count('"') % 2 == 1:
+        return "따옴표가 닫히지 않은 미완성 문장입니다."
+
+    return ""
+
+
+def get_trailing_fragment_feedback(normalized_text: str, final_token: str) -> str:
+    """마지막 문장이 단어 조각에서 끊겼는지 확인한다."""
+    if not final_token:
+        return ""
+
+    trailing_fragment_patterns = [
+        "의",
+        "라는",
+        "이라고",
+        "이라",
+        "라고",
+        "같은",
+    ]
+    if len(final_token) <= 2:
+        for pattern in trailing_fragment_patterns:
+            if normalized_text.endswith(f"{pattern} {final_token}"):
+                return "마지막 문장이 단어 중간에서 끊긴 것으로 보입니다."
+
+    if len(final_token) == 1 and normalized_text[-1].isalnum():
+        previous_text = normalized_text[:-1].rstrip()
+        if previous_text.endswith(("의", "라는", "이라고", "이라", "라고")):
+            return "마지막 문장이 단어 중간에서 끊긴 것으로 보입니다."
+
+    return ""
+
+
 def classify_intent_and_keywords(
     question: str,
     conversation_history: list[dict[str, str]],
@@ -161,6 +287,9 @@ def classify_intent_and_keywords(
     try:
         classification = parse_intent_classification_response(invoke_llm(prompt))
         if classification:
+            if classification["intent"] == "tts_request" and not is_tts_read_request(question):
+                return classify_intent_and_keywords_by_rule(question)
+
             if classification["intent"] == "archive_query" and not classification["keywords"]:
                 classification["keywords"] = extract_keywords(question)
 
@@ -196,21 +325,12 @@ def classify_intent_and_keywords_by_rule(question: str) -> dict[str, Any]:
                 "query_analysis": build_empty_query_analysis(),
             }
 
-    tts_markers = [
-        "읽어줘",
-        "읽어",
-        "낭독",
-        "tts",
-        "들려줘",
-        "재생",
-    ]
-    for marker in tts_markers:
-        if marker in normalized_question:
-            return {
-                "intent": "tts_request",
-                "keywords": [],
-                "query_analysis": build_empty_query_analysis(),
-            }
+    if is_tts_read_request(normalized_question):
+        return {
+            "intent": "tts_request",
+            "keywords": [],
+            "query_analysis": build_empty_query_analysis(),
+        }
 
     recommend_markers = [
         "추천",
@@ -353,6 +473,30 @@ def clean_classified_query_analysis(value: dict[str, Any]) -> dict[str, Any]:
     genre_terms = clean_classified_keywords(value.get("genre_terms", []))
     modifier_terms = clean_classified_keywords(value.get("modifier_terms", []))
     core_keywords = clean_classified_keywords(value.get("core_keywords", []))
+    include_terms = clean_classified_keywords(value.get("include_terms", []))
+    exclude_terms = clean_classified_keywords(value.get("exclude_terms", []))
+    recommendation_mode = clean_classified_choice(
+        value.get("recommendation_mode", ""),
+        ["similar", "different", "exclude_only"],
+        "similar",
+    )
+    exclude_reference = clean_classified_choice(
+        value.get("exclude_reference", ""),
+        [
+            "none",
+            "last_keywords",
+            "last_record",
+            "last_results",
+            "last_type",
+            "last_genre",
+        ],
+        "none",
+    )
+    exclude_scope = clean_classified_choice(
+        value.get("exclude_scope", ""),
+        ["none", "topic", "record", "type", "genre"],
+        "none",
+    )
     search_query = str(value.get("search_query", "")).strip()
     if search_query:
         return {
@@ -360,6 +504,11 @@ def clean_classified_query_analysis(value: dict[str, Any]) -> dict[str, Any]:
             "genre_terms": genre_terms,
             "modifier_terms": modifier_terms,
             "core_keywords": core_keywords,
+            "include_terms": include_terms,
+            "exclude_terms": exclude_terms,
+            "recommendation_mode": recommendation_mode,
+            "exclude_reference": exclude_reference,
+            "exclude_scope": exclude_scope,
             "search_query": search_query,
         }
 
@@ -368,6 +517,11 @@ def clean_classified_query_analysis(value: dict[str, Any]) -> dict[str, Any]:
         "genre_terms": genre_terms,
         "modifier_terms": modifier_terms,
         "core_keywords": core_keywords,
+        "include_terms": include_terms,
+        "exclude_terms": exclude_terms,
+        "recommendation_mode": recommendation_mode,
+        "exclude_reference": exclude_reference,
+        "exclude_scope": exclude_scope,
         "search_query": build_search_query_from_terms(
             core_keywords,
             modifier_terms,
@@ -383,6 +537,11 @@ def build_empty_query_analysis() -> dict[str, Any]:
         "genre_terms": [],
         "modifier_terms": [],
         "core_keywords": [],
+        "include_terms": [],
+        "exclude_terms": [],
+        "recommendation_mode": "similar",
+        "exclude_reference": "none",
+        "exclude_scope": "none",
         "search_query": "",
     }
 
@@ -397,6 +556,11 @@ def build_query_analysis_from_keywords(
         "genre_terms": [],
         "modifier_terms": [],
         "core_keywords": keywords,
+        "include_terms": keywords,
+        "exclude_terms": [],
+        "recommendation_mode": "similar",
+        "exclude_reference": "none",
+        "exclude_scope": "none",
         "search_query": build_search_query_from_terms(
             keywords,
             [],
@@ -452,6 +616,19 @@ def clean_classified_keywords(value: Any, limit: int = 5) -> list[str]:
     return keywords
 
 
+def clean_classified_choice(
+    value: Any,
+    allowed_values: list[str],
+    default_value: str,
+) -> str:
+    """LLM이 반환한 단일 선택값을 허용 목록 안으로 정리한다."""
+    cleaned_value = str(value).strip()
+    if cleaned_value in allowed_values:
+        return cleaned_value
+
+    return default_value
+
+
 def unique_preserve_order(values: list[str]) -> list[str]:
     """문자열 목록에서 순서를 유지하며 중복을 제거한다."""
     result = []
@@ -495,6 +672,11 @@ def is_simple_general_chat(question: str) -> bool:
     return normalize_general_chat_message(question) in SIMPLE_GENERAL_CHAT_MESSAGES
 
 
+def is_tts_read_request(question: str) -> bool:
+    """마지막 생성 기록 낭독은 '읽어줘' 단독 명령일 때만 허용한다."""
+    return normalize_general_chat_message(question) == "읽어줘"
+
+
 def normalize_general_chat_message(value: str) -> str:
     """Normalize short chat messages for intent routing."""
     return "".join(char for char in value.lower().strip() if char.isalnum())
@@ -535,17 +717,214 @@ def extract_recommendation_command_keywords(question: str) -> list[str]:
     return keywords
 
 
+def get_include_keywords_from_query_analysis(query_analysis: dict[str, Any]) -> list[str]:
+    """LLM이 분류한 포함 조건을 추천 검색 키워드로 모은다."""
+    return unique_preserve_order([
+        *query_analysis.get("include_terms", []),
+        *query_analysis.get("core_keywords", []),
+    ])
+
+
+def has_query_exclusions(query_analysis: dict[str, Any]) -> bool:
+    """추천/검색에서 제외 조건이 있는지 확인한다."""
+    if query_analysis.get("exclude_terms"):
+        return True
+
+    if query_analysis.get("exclude_reference", "none") != "none":
+        return True
+
+    if query_analysis.get("exclude_scope", "none") != "none":
+        return True
+
+    return False
+
+
+def build_query_exclusions(
+    query_analysis: dict[str, Any],
+    archive_context: dict[str, Any],
+) -> dict[str, Any]:
+    """query_analysis의 제외 참조를 최근 archive context 기준으로 해석한다."""
+    terms = list(query_analysis.get("exclude_terms", []))
+    record_keys = []
+    record_types = []
+    exclude_reference = query_analysis.get("exclude_reference", "none")
+    exclude_scope = query_analysis.get("exclude_scope", "none")
+
+    if exclude_reference == "last_keywords":
+        terms.extend(get_context_keywords(archive_context))
+
+    elif exclude_reference == "last_record":
+        record_key = get_record_key(archive_context.get("last_selected_record", {}))
+        if record_key:
+            record_keys.append(record_key)
+
+    elif exclude_reference == "last_results":
+        record_keys.extend(get_context_result_keys(archive_context))
+
+    elif exclude_reference == "last_type":
+        record_types.extend(get_context_result_types(archive_context))
+
+    elif exclude_reference == "last_genre":
+        terms.extend(get_context_genre_terms(archive_context))
+
+    if exclude_scope == "record":
+        record_key = get_record_key(archive_context.get("last_selected_record", {}))
+        if record_key:
+            record_keys.append(record_key)
+
+    elif exclude_scope == "type":
+        record_types.extend(get_context_result_types(archive_context))
+
+    elif exclude_scope == "genre":
+        terms.extend(get_context_genre_terms(archive_context))
+
+    return {
+        "terms": unique_preserve_order(terms),
+        "record_keys": set(record_keys),
+        "record_types": set(record_types),
+    }
+
+
+def get_context_keywords(archive_context: dict[str, Any]) -> list[str]:
+    """최근 검색 키워드와 query_analysis 핵심어를 모은다."""
+    query_analysis = archive_context.get("last_query_analysis", {})
+    if not isinstance(query_analysis, dict):
+        query_analysis = {}
+
+    return unique_preserve_order([
+        *archive_context.get("last_keywords", []),
+        *query_analysis.get("core_keywords", []),
+        *query_analysis.get("include_terms", []),
+        *query_analysis.get("modifier_terms", []),
+    ])
+
+
+def get_context_genre_terms(archive_context: dict[str, Any]) -> list[str]:
+    """최근 query_analysis의 장르성 단어를 모은다."""
+    query_analysis = archive_context.get("last_query_analysis", {})
+    if not isinstance(query_analysis, dict):
+        return []
+
+    return unique_preserve_order(query_analysis.get("genre_terms", []))
+
+
+def get_context_result_keys(archive_context: dict[str, Any]) -> list[tuple[str, Any]]:
+    """최근 결과 목록의 record key를 만든다."""
+    record_keys = []
+    for record in archive_context.get("last_results", []):
+        record_key = get_record_key(record)
+        if record_key:
+            record_keys.append(record_key)
+
+    return record_keys
+
+
+def get_context_result_types(archive_context: dict[str, Any]) -> list[str]:
+    """최근 결과 목록과 선택 기록의 archive type을 모은다."""
+    record_types = list(archive_context.get("last_result_types", []))
+    selected_record = archive_context.get("last_selected_record", {})
+    selected_type = str(selected_record.get("type", "")).strip()
+    if selected_type:
+        record_types.append(selected_type)
+
+    return unique_preserve_order(record_types)
+
+
+def get_record_key(record: dict[str, Any]) -> tuple[Any, ...]:
+    """검색 결과 dict를 비교 가능한 key로 바꾼다."""
+    record_type = str(record.get("type", "")).strip()
+    record_id = record.get("id")
+    if record_type and record_id is not None:
+        return (record_type, record_id)
+
+    return ()
+
+
+def apply_query_exclusions(
+    records: list[dict[str, Any]],
+    query_analysis: dict[str, Any],
+    archive_context: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """검색 결과에서 query_analysis의 제외 조건에 해당하는 기록을 제거한다."""
+    if not has_query_exclusions(query_analysis):
+        return records
+
+    exclusions = build_query_exclusions(query_analysis, archive_context)
+    filtered_records = []
+    for record in records:
+        if is_excluded_record(record, exclusions):
+            continue
+
+        filtered_records.append(record)
+
+    return filtered_records
+
+
+def is_excluded_record(record: dict[str, Any], exclusions: dict[str, Any]) -> bool:
+    """단일 기록이 제외 조건에 걸리는지 판단한다."""
+    record_key = get_record_key(record)
+    if record_key and record_key in exclusions["record_keys"]:
+        return True
+
+    record_type = str(record.get("type", "")).strip()
+    if record_type and record_type in exclusions["record_types"]:
+        return True
+
+    record_text = " ".join([
+        str(record.get("name", "")),
+        str(record.get("body", "")),
+        " ".join(str(region) for region in record.get("regions", [])),
+    ]).lower()
+    for term in exclusions["terms"]:
+        normalized_term = str(term).lower().strip()
+        if normalized_term and normalized_term in record_text:
+            return True
+
+    return False
+
+
 def recommend_node(state: ArchiveState) -> dict[str, Any]:
     """최근 맥락이나 분류 키워드 기준으로 비슷한 archive 기록을 추천한다."""
     question = state.get("question", "")
-    keywords = state.get("keywords") or extract_recent_context_keywords(
-        state.get("conversation_history", []),
-    )
+    archive_context = state.get("archive_context", {})
+    query_analysis = state.get("query_analysis") or build_empty_query_analysis()
+    include_keywords = get_include_keywords_from_query_analysis(query_analysis)
+    keywords = state.get("keywords") or include_keywords
+    if not keywords and not has_query_exclusions(query_analysis):
+        keywords = extract_recent_context_keywords(
+            state.get("conversation_history", []),
+        )
+
     if not keywords:
+        if has_query_exclusions(query_analysis):
+            search_results = get_random_archive_records(limit=12)
+            search_results = apply_query_exclusions(
+                search_results,
+                query_analysis,
+                archive_context,
+            )[:5]
+
+            if search_results:
+                choice_prompt = build_search_choice_prompt(
+                    question=question,
+                    search_results=search_results,
+                    conversation_history=state.get("conversation_history", []),
+                )
+                return {
+                    "keywords": [],
+                    "query_analysis": query_analysis,
+                    "search_results": search_results,
+                    "source_story": search_results[0],
+                    "llm_response": invoke_llm(choice_prompt),
+                    "skip_evaluation": True,
+                    "evaluation": {},
+                    "is_passed": True,
+                }
+
         message = "비슷한 괴담 기록을 찾지 못했습니다. 먼저 기록 하나를 열어 주십시오."
         return {
             "keywords": [],
-            "query_analysis": build_empty_query_analysis(),
+            "query_analysis": query_analysis,
             "search_results": [],
             "source_story": {},
             "generated_story": message,
@@ -555,24 +934,37 @@ def recommend_node(state: ArchiveState) -> dict[str, Any]:
             "is_passed": True,
         }
 
-    query_analysis = state.get("query_analysis") or build_query_analysis_from_keywords(
-        question,
-        keywords,
-    )
     if keywords and (
         not query_analysis.get("search_query")
         or query_analysis.get("search_query") == question
     ):
-        query_analysis = build_query_analysis_from_keywords(question, keywords)
+        query_analysis = {
+            **query_analysis,
+            "core_keywords": query_analysis.get("core_keywords") or keywords,
+            "include_terms": query_analysis.get("include_terms") or keywords,
+            "search_query": build_search_query_from_terms(
+                query_analysis.get("core_keywords", []) or keywords,
+                query_analysis.get("modifier_terms", []),
+                query_analysis.get("genre_terms", []),
+                question,
+                keywords,
+            ),
+        }
 
     semantic_query = get_semantic_search_query(question, query_analysis, keywords)
     search_results = search_archive_records_for_question(
         question,
         keywords,
         semantic_query=semantic_query,
+        limit=12,
     )
+    search_results = apply_query_exclusions(
+        search_results,
+        query_analysis,
+        archive_context,
+    )[:5]
     if not search_results:
-        message = "비슷한 괴담 기록을 찾지 못했습니다. 먼저 기록 하나를 열어 주십시오."
+        message = "말씀하신 조건을 제외하고 추천할 만한 기록을 찾지 못했습니다."
         return {
             "keywords": keywords,
             "query_analysis": query_analysis,
@@ -630,12 +1022,26 @@ def search_node(state: ArchiveState) -> dict[str, Any]:
         question,
         keywords,
     )
+    query_analysis = ensure_query_analysis(
+        question,
+        {
+            "keywords": keywords,
+            "query_analysis": query_analysis,
+        },
+    )
+    archive_context = state.get("archive_context", {})
     semantic_query = get_semantic_search_query(question, query_analysis, keywords)
     search_results = search_archive_records_for_question(
         question,
         keywords,
         semantic_query=semantic_query,
+        limit=12,
     )
+    search_results = apply_query_exclusions(
+        search_results,
+        query_analysis,
+        archive_context,
+    )[:5]
 
     source_story = {}
     if search_results:
@@ -706,7 +1112,25 @@ def generate_node(state: ArchiveState) -> dict[str, Any]:
         source_story=source_story,
         conversation_history=state.get("conversation_history", []),
     )
-    generated_story = invoke_llm(prompt)
+    generated_story = invoke_gemma_llm(prompt)
+    if not generated_story.strip():
+        logging.getLogger(__name__).warning(
+            "Archive generation LLM returned empty response",
+            extra={
+                "record_type": source_story.get("type", ""),
+                "record_id": source_story.get("id", ""),
+            },
+        )
+        message = get_empty_generation_message()
+        return {
+            "status": "error",
+            "generated_story": "",
+            "llm_response": message,
+            "evaluation": {"feedback": "생성 LLM이 빈 응답을 반환했습니다."},
+            "skip_evaluation": True,
+            "is_passed": False,
+        }
+
     return {
         "generated_story": generated_story,
         "llm_response": generated_story,
@@ -724,13 +1148,35 @@ def evaluation_node(state: ArchiveState) -> dict[str, Any]:
             "llm_response": generated_story,
         }
 
+    precheck_feedback = get_story_precheck_feedback(generated_story)
+    if precheck_feedback:
+        logging.getLogger(__name__).warning(
+            "Archive generated story failed precheck",
+            extra={
+                "feedback": precheck_feedback,
+                "record_type": state.get("source_story", {}).get("type", ""),
+                "record_id": state.get("source_story", {}).get("id", ""),
+            },
+        )
+        return {
+            "evaluation": {
+                "keyword_passed": True,
+                "consistency_passed": True,
+                "style_passed": False,
+                "atmosphere_passed": False,
+                "feedback": precheck_feedback,
+            },
+            "is_passed": False,
+            "llm_response": generated_story,
+        }
+
     prompt = build_evaluation_prompt(
         keywords=state.get("keywords", []),
         source_story=state.get("source_story", {}),
         generated_story=generated_story,
     )
     try:
-        evaluation = parse_evaluation_response(invoke_evaluation_llm(prompt))
+        evaluation = parse_evaluation_response(invoke_llm(prompt))
     except Exception:
         logging.getLogger(__name__).exception("Archive evaluation LLM failed")
         return {
@@ -763,7 +1209,54 @@ def revise_node(state: ArchiveState) -> dict[str, Any]:
         generated_story=state.get("generated_story", ""),
         evaluation=state.get("evaluation", {}),
     )
-    revised_story = invoke_llm(prompt)
+    revised_story = invoke_gemma_llm(prompt)
+    if not revised_story.strip():
+        generated_story = state.get("generated_story", "").strip()
+        logging.getLogger(__name__).warning(
+            "Archive revision LLM returned empty response",
+            extra={
+                "record_type": state.get("source_story", {}).get("type", ""),
+                "record_id": state.get("source_story", {}).get("id", ""),
+            },
+        )
+        if not generated_story:
+            message = get_empty_generation_message()
+            return {
+                "status": "error",
+                "generated_story": "",
+                "llm_response": message,
+                "revise_count": state.get("revise_count", 0) + 1,
+                "is_passed": False,
+            }
+
+        return {
+            "generated_story": generated_story,
+            "llm_response": generated_story,
+            "revise_count": state.get("revise_count", 0) + 1,
+            "is_passed": True,
+        }
+
+    precheck_feedback = get_story_precheck_feedback(revised_story)
+    if precheck_feedback:
+        logging.getLogger(__name__).warning(
+            "Archive revised story failed precheck",
+            extra={
+                "feedback": precheck_feedback,
+                "record_type": state.get("source_story", {}).get("type", ""),
+                "record_id": state.get("source_story", {}).get("id", ""),
+            },
+        )
+        message = get_empty_generation_message()
+        return {
+            "status": "error",
+            "generated_story": "",
+            "llm_response": message,
+            "evaluation": {"feedback": precheck_feedback},
+            "revise_count": state.get("revise_count", 0) + 1,
+            "skip_evaluation": True,
+            "is_passed": False,
+        }
+
     return {
         "generated_story": revised_story,
         "llm_response": revised_story,
@@ -783,21 +1276,43 @@ def decide_next_node(state: ArchiveState) -> Literal["revise", "finish"]:
 
 
 def invoke_llm(prompt: str) -> str:
-    """archive 기본 생성 모델에서 프롬프트 응답 문자열을 반환한다."""
-    response = get_post_generation_llm().invoke(prompt)
-    if hasattr(response, "content"):
-        return str(response.content).strip()
-
-    return str(response).strip()
-
-
-def invoke_evaluation_llm(prompt: str) -> str:
-    """archive 평가 모델에서 프롬프트 응답 문자열을 반환한다."""
+    """archive 기본 Groq 모델에서 프롬프트 응답 문자열을 반환한다."""
     response = get_llm().invoke(prompt)
+    log_llm_finish_reason("Archive default LLM", response)
     if hasattr(response, "content"):
         return str(response.content).strip()
 
     return str(response).strip()
+
+
+def invoke_gemma_llm(prompt: str) -> str:
+    """archive 일반 대화, 괴담 생성, 수정용 Gemma 모델 응답 문자열을 반환한다."""
+    response = get_post_generation_llm().invoke(prompt)
+    log_llm_finish_reason("Archive post-generation LLM", response)
+    if hasattr(response, "content"):
+        return str(response.content).strip()
+
+    return str(response).strip()
+
+
+def log_llm_finish_reason(context: str, response: Any) -> None:
+    """LLM 응답 메타데이터의 종료 사유를 로그로 남긴다."""
+    metadata = getattr(response, "response_metadata", {}) or {}
+    finish_reason = metadata.get("finish_reason") or metadata.get("finishReason")
+    if not finish_reason:
+        return
+
+    token_usage = metadata.get("token_usage") or metadata.get("usage")
+    log_extra = {
+        "finish_reason": finish_reason,
+        "token_usage": token_usage,
+    }
+    logger = logging.getLogger(__name__)
+    if finish_reason in ["stop", "eos", "complete"]:
+        logger.info("%s finish reason", context, extra=log_extra)
+        return
+
+    logger.warning("%s finished unexpectedly", context, extra=log_extra)
 
 
 def parse_evaluation_response(raw_response: str) -> dict[str, Any]:

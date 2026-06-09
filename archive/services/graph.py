@@ -10,6 +10,7 @@ from archive.services.keyword_extractor import extract_keywords
 def run_archive_chatbot(
     question: str,
     conversation_history: Optional[list[dict[str, str]]] = None,
+    archive_context: Optional[dict[str, Any]] = None,
 ) -> dict[str, Any]:
     """사용자 질문을 받아 DB 검색 결과를 우선 보여주고, 없으면 일반 대화로 응답한다."""
     cleaned_question = question.strip()
@@ -29,6 +30,7 @@ def run_archive_chatbot(
     final_state = archive_graph.invoke({
         "question": cleaned_question,
         "conversation_history": conversation_history or [],
+        "archive_context": archive_context or {},
         "revise_count": 0,
     })
     return {
@@ -36,6 +38,7 @@ def run_archive_chatbot(
         "query": cleaned_question,
         "intent": final_state.get("intent", ""),
         "keywords": final_state.get("keywords", []),
+        "query_analysis": final_state.get("query_analysis", {}),
         "results": final_state.get("search_results", []),
         "source_story": final_state.get("source_story", {}),
         "llm_response": final_state.get("llm_response", ""),
@@ -50,6 +53,7 @@ def run_archive_record_chatbot(
     record_type: str,
     record_id: int,
     conversation_history: Optional[list[dict[str, str]]] = None,
+    archive_context: Optional[dict[str, Any]] = None,
 ) -> dict[str, Any]:
     """사용자가 선택한 특정 원본 기록을 기준으로 괴담 재구성 파이프라인을 실행한다."""
     source_story = get_archive_record(record_type, record_id)
@@ -58,6 +62,7 @@ def run_archive_record_chatbot(
         "question": question.strip() or str(source_story.get("name", "")),
         "intent": "archive_query",
         "keywords": extract_keywords(keyword_source),
+        "archive_context": archive_context or {},
         "conversation_history": conversation_history or [],
         "search_results": [source_story],
         "source_story": source_story,
@@ -66,10 +71,11 @@ def run_archive_record_chatbot(
     final_state = build_archive_graph().invoke(state)
 
     return {
-        "status": "success",
+        "status": final_state.get("status", "success"),
         "query": question,
         "intent": "archive_query",
         "keywords": final_state.get("keywords", []),
+        "query_analysis": final_state.get("query_analysis", {}),
         "results": final_state.get("search_results", []),
         "source_story": final_state.get("source_story", {}),
         "llm_response": final_state.get("llm_response", ""),

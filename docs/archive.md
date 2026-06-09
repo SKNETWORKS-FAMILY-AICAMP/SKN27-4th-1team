@@ -396,13 +396,13 @@ TTS 오류 확인용 보조 요청도 있다.
 
 | 함수 | 모델 | 현재 용도 |
 |---|---|---|
-| `get_post_generation_llm()` | Ollama `gemma3:4b` | archive 기본 LLM 호출, generator 신규 괴담 생성 |
-| `get_llm()` | Groq `openai/gpt-oss-120b` | archive evaluation 전용 |
+| `get_post_generation_llm()` | Ollama `gemma3:4b` | archive 일반 대화, 괴담 생성, 수정 |
+| `get_llm()` | Groq `openai/gpt-oss-120b` | archive intent 분류, 검색 분위기 안내, evaluation |
 | `generator_llm()` | Ollama `gemma4:e4b` | generator 계열 |
 
-archive 앱의 `invoke_llm()`은 `get_post_generation_llm()`을 사용한다. 따라서 intent 분류, 일반 대화, 검색 분위기 안내, 괴담 생성, 수정은 기본 생성 모델을 탄다.
+archive 앱의 `invoke_llm()`은 `get_llm()`을 사용한다. 따라서 intent 분류, 검색 분위기 안내, evaluation은 Groq 모델을 탄다.
 
-archive 앱의 `invoke_evaluation_llm()`만 `get_llm()`을 사용한다. 평가 LLM 호출이 실패하면 traceback 로그를 남기고 평가를 생략하며, 생성된 괴담 본문은 사용자에게 반환한다.
+archive 앱의 `invoke_gemma_llm()`은 `get_post_generation_llm()`을 사용한다. 일반 대화, 선택 기록 기반 괴담 생성, 평가 실패 후 수정은 Gemma 모델을 탄다. 평가 LLM 호출이 실패하면 traceback 로그를 남기고 평가를 생략하며, 생성된 괴담 본문은 사용자에게 반환한다.
 
 ## 19. 주요 의존성
 

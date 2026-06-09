@@ -232,9 +232,6 @@ def get_record_type_for_source_table(source_table: str) -> str:
     if source_table == HorrorStory._meta.db_table:
         return "horror_story"
 
-    elif source_table == MythEntity._meta.db_table:
-        return "myth_entity"
-
     elif source_table == DcinsidePost._meta.db_table:
         return "dcinside_post"
 
@@ -271,8 +268,7 @@ def get_random_archive_suggestions(limit: int = 3, body_limit: int = 40) -> list
     """일반 대화에서 제안할 archive 주제를 DB에서 무작위로 가져온다."""
     query_builders = [
         lambda: HorrorStory.objects.order_by("?").values_list("title", flat=True)[:limit],
-        lambda: MythEntity.objects.order_by("?").values_list("name", flat=True)[:limit],
-        lambda: Superstition.objects.order_by("?").values_list("content", flat=True)[:limit],
+        lambda: DcinsidePost.objects.order_by("?").values_list("content", flat=True)[:limit],
     ]
     random.shuffle(query_builders)
 
@@ -294,6 +290,36 @@ def get_random_archive_suggestions(limit: int = 3, body_limit: int = 40) -> list
         return []
 
     return suggestions
+
+
+def get_random_archive_records(
+    limit: int = 5,
+    body_limit: int = 1800,
+) -> list[dict[str, Any]]:
+    """구체 검색어가 없을 때 여러 archive 원천에서 후보 기록을 가져온다."""
+    query_builders = [
+        ("horror_story", lambda: HorrorStory.objects.order_by("?").values_list("id", flat=True)[:limit]),
+        ("dcinside_post", lambda: DcinsidePost.objects.order_by("?").values_list("id", flat=True)[:limit]),
+    ]
+    random.shuffle(query_builders)
+
+    records = []
+    per_source_limit = max(1, (limit // len(query_builders)) + 1)
+    try:
+        for record_type, build_query in query_builders:
+            for record_id in build_query()[:per_source_limit]:
+                records.append(
+                    get_archive_record(
+                        record_type,
+                        int(record_id),
+                        body_limit=body_limit,
+                    )
+                )
+    except DatabaseError:
+        return []
+
+    random.shuffle(records)
+    return records[:limit]
 
 
 def get_neo4j_related_keywords(
@@ -445,11 +471,10 @@ def search_archive_records_by_keywords(
     limit: int = 5,
     body_limit: int = 1800,
 ) -> list[dict[str, Any]]:
-    """키워드별 명시적 필터를 합쳐 괴담, 존재, 금기 기록을 검색한다."""
+    """키워드별 명시적 필터를 합쳐 괴담과 DCInside 기록을 검색한다."""
     records = []
     story_queryset = HorrorStory.objects.none()
-    entity_queryset = MythEntity.objects.none()
-    superstition_queryset = Superstition.objects.none()
+    dcinside_queryset = DcinsidePost.objects.none()
 
     for keyword in keywords:
         story_queryset = (
@@ -460,21 +485,12 @@ def search_archive_records_by_keywords(
             | HorrorStory.objects.filter(region__icontains=keyword)
             | HorrorStory.objects.filter(category__icontains=keyword)
         )
-        entity_queryset = (
-            entity_queryset
-            | MythEntity.objects.filter(name__icontains=keyword)
-            | MythEntity.objects.filter(origin__icontains=keyword)
-            | MythEntity.objects.filter(description__icontains=keyword)
-            | MythEntity.objects.filter(behavior__icontains=keyword)
-            | MythEntity.objects.filter(weakness__icontains=keyword)
-            | MythEntity.objects.filter(history__icontains=keyword)
-            | MythEntity.objects.filter(signs__icontains=keyword)
-        )
-        superstition_queryset = (
-            superstition_queryset
-            | Superstition.objects.filter(content__icontains=keyword)
-            | Superstition.objects.filter(category__icontains=keyword)
-            | Superstition.objects.filter(region__icontains=keyword)
+        dcinside_queryset = (
+            dcinside_queryset
+            | DcinsidePost.objects.filter(content__icontains=keyword)
+            | DcinsidePost.objects.filter(category__icontains=keyword)
+            | DcinsidePost.objects.filter(region__icontains=keyword)
+            | DcinsidePost.objects.filter(keywords__contains=[keyword])
         )
 
     for story in story_queryset.distinct()[: limit * 3]:
@@ -505,70 +521,29 @@ def search_archive_records_by_keywords(
             ),
         })
 
-    for entity in entity_queryset.distinct()[: limit * 3]:
-        body = make_preview(
-            entity.description,
-            entity.behavior,
-            entity.weakness,
-            entity.history,
-            entity.signs,
-            "\n".join(entity.survival_rules or []),
-            limit=body_limit,
-        )
+    for post in dcinside_queryset.distinct()[: limit * 3]:
+        category_name = post.get_category_display()
+        body = make_preview(post.content, limit=body_limit)
         if not is_relevant_record(
             keywords,
-            strong_values=[entity.name, entity.origin, entity.signs],
-            weak_values=[
-                entity.description,
-                entity.behavior,
-                entity.weakness,
-                entity.history,
-                "\n".join(entity.survival_rules or []),
-            ],
-            single_keyword_weak_match_count=SINGLE_KEYWORD_WEAK_MATCH_COUNTS["myth_entity"],
+            strong_values=[post.region, category_name],
+            weak_values=[post.content, " ".join(post.keywords or [])],
+            single_keyword_weak_match_count=SINGLE_KEYWORD_WEAK_MATCH_COUNTS["dcinside_post"],
         ):
             continue
 
         records.append({
-            "id": entity.id,
-            "name": entity.name,
+            "id": post.id,
+            "name": make_dcinside_display_name(post.content),
             "body": body,
-            "regions": clean_regions(entity.origin),
-            "type": "myth_entity",
+            "regions": clean_regions(post.region, category_name),
+            "type": "dcinside_post",
             "score": score_record_text(
                 keywords,
-                entity.name,
-                entity.origin,
-                entity.signs,
-                entity.description,
-                entity.behavior,
-                entity.weakness,
-                entity.history,
-                "\n".join(entity.survival_rules or []),
-            ),
-        })
-
-    for superstition in superstition_queryset.distinct()[: limit * 3]:
-        body = make_preview(superstition.content, limit=body_limit)
-        if not is_relevant_record(
-            keywords,
-            strong_values=[superstition.region, superstition.category],
-            weak_values=[superstition.content],
-            single_keyword_weak_match_count=SINGLE_KEYWORD_WEAK_MATCH_COUNTS["superstition"],
-        ):
-            continue
-
-        records.append({
-            "id": superstition.id,
-            "name": superstition.content[:50],
-            "body": body,
-            "regions": clean_regions(superstition.region, superstition.category),
-            "type": "superstition",
-            "score": score_record_text(
-                keywords,
-                superstition.content,
-                superstition.region,
-                superstition.category,
+                post.region,
+                category_name,
+                post.content,
+                " ".join(post.keywords or []),
             ),
         })
 
@@ -623,11 +598,12 @@ def get_archive_record(record_type: str, record_id: int, body_limit: int = 1800)
 
     elif record_type == "dcinside_post":
         post = DcinsidePost.objects.get(id=record_id)
+        category_name = post.get_category_display()
         return {
             "id": post.id,
-            "name": post.title,
+            "name": make_dcinside_display_name(post.content),
             "body": make_preview(post.content, limit=body_limit),
-            "regions": clean_regions(post.region, post.get_category_display()),
+            "regions": clean_regions(post.region, category_name),
             "type": "dcinside_post",
             "score": 1,
         }
@@ -642,6 +618,18 @@ def make_preview(*parts: Any, limit: int) -> str:
         return body
 
     return f"{body[:limit].rstrip()}..."
+
+
+def make_dcinside_display_name(
+    content: str,
+    title_limit: int = 40,
+) -> str:
+    """DCInside 수집 글은 별도 title 없이 본문 앞부분으로 표시명을 만든다."""
+    content_preview = make_preview(content, limit=title_limit)
+    if content_preview:
+        return content_preview
+
+    return "DCInside 공포 기록"
 
 
 def clean_regions(*values: Any) -> list[str]:
