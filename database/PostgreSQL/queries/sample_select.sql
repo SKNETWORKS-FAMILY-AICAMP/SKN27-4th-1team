@@ -18,6 +18,13 @@ FROM superstitions
 ORDER BY id
 LIMIT 20;
 
+-- DCInside 수집 게시글: 목격담/창작담 초기 데이터
+SELECT id, category, title, region, LEFT(content, 120) AS content_preview, created_at
+FROM dcinside_posts
+WHERE is_active = true
+ORDER BY id DESC
+LIMIT 20;
+
 -- 열린 게시판: 최신 게시글
 SELECT id, author_id, category, title, region, views, likes, created_at
 FROM post_post
