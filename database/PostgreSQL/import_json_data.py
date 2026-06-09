@@ -114,7 +114,6 @@ def import_myth_entities() -> int:
 
     return count
 
-
 def import_superstitions() -> int:
     rows = load_json("misin.json")
     count = 0
@@ -142,7 +141,7 @@ def category_from_dcinside_title(title: str) -> str | None:
     normalized = (title or "").strip()
     if normalized == "[창작]":
         return "CREATION"
-    if normalized in {"[경험]", "[괴담]", "[사건/사고]"}:
+    if normalized in {"[경험]", "[괴담]", "[공포]", "[사건/사고]"}:
         return "WITNESS"
     return None
 
