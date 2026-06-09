@@ -9,7 +9,7 @@
 확정 app은 아래 5개로 나눕니다.
 
 - `accounts`: 회원가입, 로그인, 로그아웃, 사용자 인증, 마이페이지 기본 정보
-- `archive`: 괴담/금기 아카이브, 괴담 검색, 금기 조회, 오늘의 금기 조회
+- `archive`: 괴담 아카이브, 괴담 검색, 괴담챗봇
 - `generator`: AI 괴담 생성, RAG/LLM 연동, 생성 결과 저장, RAGAS 기반 평가
 - `post`: 목격담 게시판 작성, 목록, 상세, 수정, 삭제
 - `regions`: 지역 지도, Neo4j 기반 지역 괴담 조회
@@ -301,7 +301,7 @@ regions.services
 5명 기준으로 기술별 담당보다 Django app과 화면 단위로 나눕니다. 각 페이지의 HTML, CSS, JavaScript는 이미 완성되어 있으므로, 각 담당자는 맡은 app에서 기존 화면 파일을 Django template/static 구조로 연결하고 데이터 흐름을 구현합니다.
 
 1. accounts app: 회원가입, 로그인, 로그아웃, 사용자 인증, 마이페이지 기본 정보
-2. archive app: 괴담/금기 아카이브, 괴담 검색, 금기 조회, 오늘의 금기 조회, 상세 조회, 저장한 괴담 조회
+2. archive app: 괴담아카이브, 괴담 검색, 괴담챗봇
 3. generator app: AI 괴담 생성, 생성 결과 저장, evaluation
 4. post app: 목격담 게시판 작성, 목록, 상세, 수정, 삭제
 5. regions app: 지역 지도, Neo4j 기반 지역 괴담 조회, 지역-장소-괴담 관계 탐색
