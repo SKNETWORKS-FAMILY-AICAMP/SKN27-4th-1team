@@ -109,7 +109,7 @@ def query_region_relations(region_name):
             MATCH (o:Origin)
             WHERE toLower(o.name) = toLower($region)
             MATCH (c)-[:ORIGINATED_IN]->(o)
-            WHERE (c:Legend OR c:Story OR c:SCP)
+            WHERE (c:Legend OR c:Story)
             AND c.body IS NOT NULL AND c.body <> ''
             WITH o, c ORDER BY CASE WHEN c:Story THEN 0 ELSE 1 END, c.name
             RETURN o.name AS place_name,

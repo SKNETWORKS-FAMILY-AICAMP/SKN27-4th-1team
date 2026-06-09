@@ -54,7 +54,7 @@ def run_import():
             ("Yokai", "UNIQUE_NODE_ID"), ("Legend", "UNIQUE_LEGEND_ID"),
             ("Story", "UNIQUE_STORY_ID"), ("Location", "UNIQUE_LOC_ID"),
             ("Countermeasure", "UNIQUE_COUNTER_ID"), ("Source", "UNIQUE_SRC_ID"),
-            ("Origin", "UNIQUE_ORIGIN_ID"), ("SCP", "UNIQUE_SCP_ID"),
+            ("Origin", "UNIQUE_ORIGIN_ID"),
             ("Region", "UNIQUE_REGION_ID"), ("Place", "UNIQUE_PLACE_ID"),
         ]:
             try:
@@ -63,7 +63,7 @@ def run_import():
                 pass
 
         print("Importing Nodes from nodes.csv...")
-        labels = ["Yokai", "Legend", "Story", "Location", "Countermeasure", "Source", "Origin", "SCP"]
+        labels = ["Yokai", "Legend", "Story", "Location", "Countermeasure", "Source", "Origin"]
         for label in labels:
             print(f"-> Creating nodes with label: {label}")
             session.run(f"""
@@ -184,22 +184,7 @@ def run_import():
             SET s.body = CASE WHEN row.body <> '' AND s.body IS NULL THEN row.body ELSE s.body END
             """, batch=reddit_updates)
 
-        # D. SCP
-        scp_path = os.path.join(docs_dir, 'preprocessed_scp.json')
-        if os.path.exists(scp_path):
-            print("-> Binding preprocessed_scp.json...")
-            with open(scp_path, 'r', encoding='utf-8') as f:
-                scp_data = json.load(f)
-            scp_updates = [
-                {"id": f"scp_{normalize_string(item.get('code', ''))}", "text": item.get('text', '')}
-                for item in scp_data if normalize_string(item.get('code', ''))
-            ]
-            session.run("""
-            UNWIND $batch AS row MATCH (n:SCP {id: row.id})
-            SET n.text = CASE WHEN row.text <> '' THEN row.text ELSE n.text END
-            """, batch=scp_updates)
-
-        # E. DC인사이드
+        # D. DC인사이드
         dc_path = os.path.join(docs_dir, 'dcinside_horror_filtered.json')
         if os.path.exists(dc_path):
             print("-> Binding dcinside_horror_filtered.json...")
