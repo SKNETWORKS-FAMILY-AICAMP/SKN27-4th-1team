@@ -101,40 +101,41 @@ def import_myth_entities() -> int:
     return count
 
 
-def import_scp_entities() -> int:
-    scp_path = DATA_DIR / "preprocessed_scp.json"
-    if not scp_path.exists():
-        print("preprocessed_scp.json 없음, 건너뜀")
+
+def import_dcinside_stories() -> int:
+    dc_path = DATA_DIR / "dcinside_horror_filtered.json"
+    if not dc_path.exists():
+        print("dcinside_horror_filtered.json 없음, 건너뜀")
         return 0
 
-    with scp_path.open(encoding="utf-8") as f:
+    with dc_path.open(encoding="utf-8") as f:
         rows = json.load(f)
+
+    CATEGORY_TAGS = {'[경험]', '[괴담]', '[공포]', '[창작]', '[사건/사고]'}
     count = 0
-    source = "scp_wiki_ko"
+    source = "dcinside_horror"
 
-    for row in rows:
-        code = row.get("code") or ""
-        korean_name = row.get("korean_name") or ""
-        name = f"{code} - {korean_name}" if korean_name else code
-        text = row.get("text") or ""
-        obj_class = row.get("object_class") or ""
-        tags = row.get("tags") or []
+    for i, row in enumerate(rows):
+        title_tag = row.get("title", "").strip()
+        content = row.get("content", "").strip()
+        if not content:
+            continue
 
-        MythEntity.objects.update_or_create(
+        title = content[:40].strip() + "..." if title_tag in CATEGORY_TAGS else title_tag
+        category = title_tag if title_tag in CATEGORY_TAGS else ""
+
+        HorrorStory.objects.update_or_create(
             source=source,
-            source_ref_id=code,
+            source_ref_id=str(i),
             defaults={
-                "name": name,
-                "origin": "SCP 재단",
-                "description": make_preview(text, 500),
-                "behavior": text[:2000],
-                "weakness": obj_class,
-                "history": "",
-                "signs": "",
-                "survival_rules": tags,
-                "source_site": "SCP 재단 한국어 위키",
-                "source_url": row.get("source_url") or "",
-                "metadata": {"object_class": obj_class, "tags": tags},
+                "title": title,
+                "language": "ko",
+                "region": "한국",
+                "url": "",
+                "preview": make_preview(content),
+                "content": content,
+                "category": category,
+                "metadata": {},
             },
         )
         count += 1
@@ -166,8 +167,8 @@ def import_superstitions() -> int:
 def main() -> None:
     imported = {
         "horror_stories": import_horror_stories(),
+        "dcinside_stories": import_dcinside_stories(),
         "myth_entities": import_myth_entities(),
-        "scp_entities": import_scp_entities(),
         "superstitions": import_superstitions(),
     }
 
