@@ -1,0 +1,869 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>괴이바 발표 자료</title>
+
+    <style>
+      :root {
+        --bg: #090909;
+        --panel: #121212;
+        --panel-2: #1a0d0d;
+        --line: #681515;
+        --red: #ff3030;
+        --red-2: #c91818;
+        --text: #f3eaea;
+        --muted: #b99191;
+        --soft: #2a1717;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        color: var(--text);
+        background:
+          linear-gradient(rgba(255, 48, 48, 0.035) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255, 48, 48, 0.025) 1px, transparent 1px),
+          radial-gradient(circle at 30% 0%, rgba(160, 0, 0, 0.22), transparent 36%),
+          var(--bg);
+        background-size: 12px 12px, 12px 12px, auto, auto;
+        font-family:
+          "Pretendard", "Noto Sans KR", "Malgun Gothic", Arial, sans-serif;
+        line-height: 1.55;
+        word-break: keep-all;
+        overflow-wrap: normal;
+      }
+
+      a {
+        color: inherit;
+      }
+
+      .deck {
+        width: 100%;
+        margin: 0;
+        padding: 0;
+      }
+
+      .nav {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 12px 18px;
+        margin: 0;
+        border: 0;
+        border-bottom: 1px solid var(--line);
+        background: rgba(9, 9, 9, 0.92);
+        backdrop-filter: blur(10px);
+      }
+
+      .nav strong {
+        color: var(--red);
+        letter-spacing: 0.02em;
+      }
+
+      .nav-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      .nav-links a {
+        padding: 5px 8px;
+        border: 1px solid transparent;
+        text-decoration: none;
+      }
+
+      .nav-links a:hover {
+        color: var(--text);
+        border-color: var(--line);
+      }
+
+      .slide {
+        min-height: calc(100vh - 49px);
+        display: grid;
+        align-content: center;
+        gap: 24px;
+        padding: clamp(32px, 5vw, 72px);
+        margin: 0;
+        border: 0;
+        border-bottom: 1px solid var(--line);
+        background:
+          linear-gradient(135deg, rgba(255, 48, 48, 0.07), transparent 34%),
+          linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent),
+          rgba(12, 12, 12, 0.95);
+        box-shadow: 0 18px 50px rgba(0, 0, 0, 0.42);
+      }
+
+      .slide.compact {
+        min-height: calc(100vh - 49px);
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        width: fit-content;
+        align-items: center;
+        gap: 8px;
+        padding: 5px 10px;
+        color: var(--red);
+        border: 1px solid var(--line);
+        background: rgba(255, 48, 48, 0.07);
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        max-width: 900px;
+        color: #fff8f8;
+        font-size: clamp(46px, 7vw, 82px);
+        line-height: 1.02;
+        letter-spacing: 0;
+      }
+
+      h2 {
+        color: #fff6f6;
+        font-size: clamp(32px, 4.6vw, 54px);
+        line-height: 1.12;
+      }
+
+      h3 {
+        color: #fff0f0;
+        font-size: 21px;
+      }
+
+      .lead {
+        max-width: 860px;
+        color: #e8cfcf;
+        font-size: 22px;
+      }
+
+      .sub {
+        color: var(--muted);
+        font-size: 16px;
+      }
+
+      .grid {
+        display: grid;
+        gap: 16px;
+      }
+
+      .grid.two {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .grid.three {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .grid.four {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+
+      .card {
+        min-height: 132px;
+        padding: 18px;
+        border: 1px solid var(--line);
+        background: rgba(18, 18, 18, 0.84);
+      }
+
+      .card strong {
+        display: block;
+        margin-bottom: 8px;
+        color: var(--red);
+        font-size: 18px;
+      }
+
+      .card p,
+      .card li {
+        color: #dec5c5;
+      }
+
+      ul {
+        margin: 0;
+        padding-left: 20px;
+      }
+
+      li + li {
+        margin-top: 8px;
+      }
+
+      .flow {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 10px;
+        align-items: stretch;
+      }
+
+      .flow span {
+        display: grid;
+        place-items: center;
+        min-height: 80px;
+        padding: 12px;
+        text-align: center;
+        color: #ffeaea;
+        border: 1px solid var(--line);
+        background: var(--panel-2);
+        font-weight: 700;
+      }
+
+      .shot-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 18px;
+      }
+
+      figure {
+        margin: 0;
+        border: 1px solid var(--line);
+        background: #050505;
+        overflow: hidden;
+      }
+
+      figure img {
+        display: block;
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        object-fit: contain;
+        background: #030303;
+        border-bottom: 1px solid var(--line);
+      }
+
+      figcaption {
+        padding: 10px 12px;
+        color: #e7caca;
+        font-size: 14px;
+      }
+
+      .table {
+        display: grid;
+        border: 1px solid var(--line);
+      }
+
+      .row {
+        display: grid;
+        grid-template-columns: 190px 1fr 1.1fr;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .row:last-child {
+        border-bottom: 0;
+      }
+
+      .cell {
+        padding: 13px 14px;
+        border-right: 1px solid var(--line);
+      }
+
+      .cell:last-child {
+        border-right: 0;
+      }
+
+      .head {
+        color: var(--red);
+        background: rgba(255, 48, 48, 0.09);
+        font-weight: 800;
+      }
+
+      .db-tables {
+        display: grid;
+        gap: 18px;
+      }
+
+      .db-card {
+        border: 1px solid var(--line);
+        background:
+          linear-gradient(90deg, rgba(255, 48, 48, 0.08), transparent 36%),
+          rgba(18, 18, 18, 0.84);
+      }
+
+      .db-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .db-title strong {
+        color: var(--red);
+        font-size: 20px;
+      }
+
+      .db-title span {
+        color: var(--muted);
+        font-size: 14px;
+        text-align: right;
+      }
+
+      .db-table {
+        border: 0;
+      }
+
+      .db-table .row {
+        grid-template-columns: 150px minmax(250px, 1fr) minmax(260px, 1.1fr);
+      }
+
+      .db-table .cell {
+        display: flex;
+        align-items: center;
+        min-height: 48px;
+        padding: 11px 14px;
+        color: #ead1d1;
+      }
+
+      .db-table .cell:nth-child(2) {
+        color: #fff0f0;
+        font-family: Consolas, "Courier New", monospace;
+        font-size: 14px;
+      }
+
+      .badge-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .badge {
+        padding: 8px 12px;
+        border: 1px solid var(--line);
+        color: #ffeaea;
+        background: rgba(255, 48, 48, 0.08);
+      }
+
+      .highlight {
+        color: var(--red);
+      }
+
+      .ending {
+        display: grid;
+        gap: 18px;
+        text-align: center;
+        justify-items: center;
+      }
+
+      .ending h2 {
+        font-size: clamp(40px, 7vw, 80px);
+      }
+
+      .next-slide-button {
+        position: fixed;
+        right: 18px;
+        bottom: 18px;
+        z-index: 20;
+        min-width: 72px;
+        padding: 7px 10px;
+        color: #fff4f4;
+        border: 1px solid var(--red);
+        background: rgba(160, 0, 0, 0.88);
+        font: inherit;
+        font-size: 12px;
+        font-weight: 800;
+        cursor: pointer;
+        box-shadow: 0 8px 18px rgba(0, 0, 0, 0.34);
+      }
+
+      .next-slide-button:hover {
+        background: var(--red-2);
+      }
+
+      .next-slide-button:disabled {
+        color: #8d6f6f;
+        border-color: var(--line);
+        background: rgba(24, 12, 12, 0.82);
+        cursor: default;
+      }
+
+      @media (max-width: 880px) {
+        .deck {
+          width: 100%;
+        }
+
+        .slide {
+          min-height: calc(100vh - 49px);
+          padding: 28px;
+        }
+
+        .grid.two,
+        .grid.three,
+        .grid.four,
+        .shot-grid,
+        .flow {
+          grid-template-columns: 1fr;
+        }
+
+        .row {
+          grid-template-columns: 1fr;
+        }
+
+        .cell {
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .cell:last-child {
+          border-bottom: 0;
+        }
+
+        .nav {
+          position: static;
+          align-items: flex-start;
+          flex-direction: column;
+        }
+
+        .next-slide-button {
+          right: 10px;
+          bottom: 10px;
+          min-width: 58px;
+          padding: 6px 8px;
+          font-size: 11px;
+        }
+      }
+
+      @media print {
+        body {
+          background: #fff;
+          color: #111;
+        }
+
+        .nav {
+          display: none;
+        }
+
+        .next-slide-button {
+          display: none;
+        }
+
+        .deck {
+          width: 100%;
+          padding: 0;
+        }
+
+        .slide {
+          min-height: 100vh;
+          page-break-after: always;
+          border: 0;
+          box-shadow: none;
+          background: #fff;
+          color: #111;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="deck">
+      <nav class="nav">
+        <strong>괴이바 발표 자료</strong>
+        <div class="nav-links">
+          <a href="#overview">개요</a>
+          <a href="#goals">목표</a>
+          <a href="#concept">컨셉</a>
+          <a href="#flow">흐름</a>
+          <a href="#stack">시스템</a>
+          <a href="#db">DB</a>
+          <a href="#features">기능</a>
+        </div>
+      </nav>
+
+      <section class="slide" id="cover">
+        <span class="eyebrow">괴이바</span>
+        <h1>괴이기록 보관소</h1>
+        <p class="lead">
+          Django 기반의 괴담 및 금기 아카이브 플랫폼으로, PostgreSQL과 Neo4j를 분리 활용하고
+          LLM으로 새로운 괴담 창작과 공유 흐름을 지원합니다.
+        </p>
+        <div class="badge-list">
+          <span class="badge">2026.06.09 - 2026.06.10</span>
+          <span class="badge">Django</span>
+          <span class="badge">PostgreSQL</span>
+          <span class="badge">Neo4j</span>
+          <span class="badge">Groq / Ollama</span>
+          <span class="badge">Docker</span>
+          <span class="badge">Template / Static</span>
+        </div>
+      
+      </section>
+
+      <section class="slide compact" id="overview">
+        <span class="eyebrow">01. Project Overview</span>
+        <h2>프로젝트 개요</h2>
+        <p class="lead">
+          Django 기반의 괴담 및 금기 아카이브 플랫폼으로, 서비스 핵심 데이터는 PostgreSQL에
+          저장하고 지역·장소·괴담 관계는 Neo4j로 탐색합니다. LLM을 연동해 사용자가 직접
+          새로운 괴담을 창작하고 공유할 수 있도록 구성했습니다.
+        </p>
+        <div class="grid three">
+          <article class="card">
+            <strong>괴담 아카이브</strong>
+            <p>검증된 괴담, 괴이 존재, 금기 데이터를 검색하고 열람합니다.</p>
+          </article>
+          <article class="card">
+            <strong>생성형 콘텐츠</strong>
+            <p>지역, 장소, 금기, 발생 조건을 입력해 AI 괴담을 생성하고 평가 흐름까지 연결합니다.</p>
+          </article>
+          <article class="card">
+            <strong>커뮤니티</strong>
+            <p>목격담과 창작담을 작성하고, 본인 글을 수정·삭제할 수 있습니다.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="slide compact" id="goals">
+        <span class="eyebrow">02. Background & Goals</span>
+        <h2>개발 배경과 프로젝트 목표</h2>
+        <div class="grid two">
+          <article class="card">
+            <strong>해결하고자 한 문제</strong>
+            <ul>
+              <li>지역 괴담과 금기 정보가 파편화되어 탐색이 어려움</li>
+              <li>괴담, 장소, 괴이의 관계를 텍스트만으로 파악하기 어려움</li>
+              <li>괴담 창작 진입 장벽이 높음</li>
+              <li>콘텐츠 소비에 어울리는 몰입형 UI가 부족함</li>
+            </ul>
+          </article>
+          <article class="card">
+            <strong>구현 목표</strong>
+            <ul>
+              <li>Django 기반 사용자 인증, 마이페이지, 열린 게시판 구현</li>
+              <li>PostgreSQL 기반 괴담/금기 데이터 저장과 검색 제공</li>
+              <li>Neo4j 기반 지역-장소-괴담 관계 탐색 구현</li>
+              <li>Groq/Ollama 기반 LLM 생성과 RAGAS 평가 흐름 구성</li>
+              <li>터미널형 UI, 글리치, 음향 효과로 몰입감 강화</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section class="slide compact" id="concept">
+        <span class="eyebrow">03. Concept</span>
+        <h2>오래된 괴담 기록소에 접속하는 경험</h2>
+        <p class="lead">
+          괴이바는 단순한 정보 검색 사이트가 아니라, 사용자가 금지된 기록을 열람하는 듯한
+          분위기를 느끼도록 설계한 괴담 아카이브 서비스입니다.
+        </p>
+        <div class="grid three">
+          <article class="card">
+            <strong>접속 경험</strong>
+            <p>사용자가 일반 웹사이트가 아니라 오래된 기록 장치에 접속한 듯한 첫인상을 목표로 했습니다.</p>
+          </article>
+          <article class="card">
+            <strong>기록소 세계관</strong>
+            <p>기록 열람실, 금기 자료실, 신규 기록실처럼 페이지 이름부터 아카이브 콘셉트에 맞췄습니다.</p>
+          </article>
+          <article class="card">
+            <strong>탐색 동기</strong>
+            <p>괴담을 단순히 읽는 것이 아니라, 금지된 자료를 찾아 들어가는 흐름으로 서비스 몰입을 유도했습니다.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="slide compact" id="flow">
+        <span class="eyebrow">04. Service Flow</span>
+        <h2>서비스 핵심 흐름</h2>
+        <div class="flow">
+          <span>기록소 접속</span>
+          <span>괴담·금기 탐색</span>
+          <span>지역 관계 조회</span>
+          <span>AI 신규 기록 생성</span>
+          <span>공유·보관·관리</span>
+        </div>
+        <div class="grid two">
+          <article class="card">
+            <strong>탐색 중심 흐름</strong>
+            <p>사용자는 메인 화면에서 기록소에 접속한 뒤 기록 열람실, 금기 자료실, 지역 정보실을 통해 괴담과 금기 데이터를 탐색합니다.</p>
+          </article>
+          <article class="card">
+            <strong>참여 중심 흐름</strong>
+            <p>탐색한 세계관을 바탕으로 신규 기록실에서 AI 괴담을 생성하고, 열린 게시판에 공유하거나 나의 보관함에서 관리합니다.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="slide compact" id="stack">
+        <span class="eyebrow">05. System Flow</span>
+        <h2>시스템 흐름</h2>
+        <div class="grid two">
+          <article class="card">
+            <strong>요청 처리 흐름</strong>
+            <ul>
+              <li>브라우저 요청을 config/urls.py와 각 app/urls.py에서 라우팅</li>
+              <li>views.py가 페이지 렌더링과 JSON API 응답을 처리</li>
+              <li>services.py가 DB 조회, LLM 호출, Neo4j 조회 로직을 담당</li>
+            </ul>
+          </article>
+          <article class="card">
+            <strong>데이터 처리 흐름</strong>
+            <ul>
+              <li>PostgreSQL: 사용자, 게시글, 금기, 생성 결과, 보관함</li>
+              <li>Neo4j: 국가, 지역, 장소, 괴담, 신화 존재 관계 탐색</li>
+              <li>Groq/Ollama: 챗봇 응답, 신규 괴담 생성, 평가 보조</li>
+            </ul>
+          </article>
+        </div>
+        <div class="badge-list">
+          <span class="badge">accounts</span>
+          <span class="badge">archive</span>
+          <span class="badge">generator</span>
+          <span class="badge">post</span>
+          <span class="badge">regions</span>
+          <span class="badge">Groq</span>
+          <span class="badge">Ollama</span>
+          <span class="badge">Docker</span>
+        </div>
+      </section>
+
+      <section class="slide compact" id="db">
+        <span class="eyebrow">06. Database</span>
+        <h2>PostgreSQL과 Neo4j 역할 분리</h2>
+        <div class="db-tables">
+          <article class="db-card">
+            <div class="db-title">
+              <strong>PostgreSQL</strong>
+              <span>서비스 운영 데이터와 관계형 테이블 저장</span>
+            </div>
+            <div class="table db-table">
+              <div class="row head">
+                <div class="cell">구분</div>
+                <div class="cell">주요 테이블</div>
+                <div class="cell">사용 위치</div>
+              </div>
+              <div class="row">
+                <div class="cell">Django 인증</div>
+                <div class="cell">auth_user, django_session</div>
+                <div class="cell">회원가입, 로그인, 작성자, 보관함 소유자</div>
+              </div>
+              <div class="row">
+                <div class="cell">아카이브</div>
+                <div class="cell">horror_stories, myth_entities, superstitions</div>
+                <div class="cell">기록 열람실, 금기 자료실</div>
+              </div>
+              <div class="row">
+                <div class="cell">외부 수집</div>
+                <div class="cell">dcinside_posts</div>
+                <div class="cell">창작/목격 분류된 외부 공포 썰 검색 데이터</div>
+              </div>
+              <div class="row">
+                <div class="cell">생성 / 게시판</div>
+                <div class="cell">generated_stories, post_post, post_like</div>
+                <div class="cell">신규 기록실, 열린 게시판</div>
+              </div>
+              <div class="row">
+                <div class="cell">의미 검색</div>
+                <div class="cell">record_embeddings</div>
+                <div class="cell">pgvector 기반 768차원 임베딩 청크 저장</div>
+              </div>
+              <div class="row">
+                <div class="cell">보관함</div>
+                <div class="cell">accounts_bookmark, generated_story_bookmarks, post_bookmarks</div>
+                <div class="cell">나의 보관함</div>
+              </div>
+            </div>
+          </article>
+          <article class="db-card">
+            <div class="db-title">
+              <strong>Neo4j</strong>
+              <span>지역 정보실에서 관계를 따라 괴이 기록을 탐색</span>
+            </div>
+            <div class="table db-table">
+              <div class="row head">
+                <div class="cell">관계 흐름</div>
+                <div class="cell">Neo4j 관계</div>
+                <div class="cell">탐색 의미</div>
+              </div>
+              <div class="row">
+                <div class="cell">국가/지역 기준</div>
+                <div class="cell">(Story / Legend)-[:ORIGINATED_IN]->(Origin)</div>
+                <div class="cell">지도에서 선택한 국가나 지역에 연결된 괴담과 신화 존재를 찾습니다.</div>
+              </div>
+              <div class="row">
+                <div class="cell">지역 하위 장소</div>
+                <div class="cell">(Region)-[:HAS_PLACE]->(Place)</div>
+                <div class="cell">지역 아래에 어떤 장소들이 연결되어 있는지 폴더 트리로 보여줍니다.</div>
+              </div>
+              <div class="row">
+                <div class="cell">장소별 발생 기록</div>
+                <div class="cell">(Place)-[:OCCURRED_AT]->(Story)</div>
+                <div class="cell">선택한 장소에서 발생한 괴담 기록을 조회합니다.</div>
+              </div>
+            
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="slide compact" id="features">
+        <span class="eyebrow">07. Feature Summary</span>
+        <h2>구현 기능 요약</h2>
+        <div class="grid two">
+          <article class="card">
+            <strong>사용자 기능</strong>
+            <ul>
+              <li>회원가입, 로그인, 로그아웃, 세션 만료</li>
+              <li>마이페이지, 보관함, 회원 탈퇴</li>
+              <li>본인 게시글 수정·삭제 권한 제어</li>
+            </ul>
+          </article>
+          <article class="card">
+            <strong>콘텐츠 기능</strong>
+            <ul>
+              <li>챗봇 기반 괴담 검색, 금기 목록, 오늘의 금기</li>
+              <li>AI 괴담 생성, RAGAS 평가, 창작담 게시 연동</li>
+              <li>지역 정보실 Map UI와 GraphDB 비동기 조회</li>
+              <li>목격담·창작담 게시판과 검색</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section class="slide compact">
+        <span class="eyebrow">08. Archive Features</span>
+        <h2>기록 열람실과 금기 자료실</h2>
+        <div class="grid two">
+          <article class="card">
+            <strong>기록 열람실</strong>
+            <ul>
+              <li>의도 분류: 괴담 조회, 일반 대화, 낭독 요청</li>
+              <li>PostgreSQL 검색 결과를 LLM 선택 유도문으로 반환</li>
+              <li>선택 기록 기반 생성, 평가, 1회 수정 파이프라인</li>
+              <li>ElevenLabs TTS와 YouTube BGM 연동</li>
+            </ul>
+          </article>
+          <article class="card">
+            <strong>금기 자료실</strong>
+            <ul>
+              <li>PostgreSQL `superstitions` 테이블 연동</li>
+              <li>fetch 기반 내부 API로 전체 목록, 색인 검색, 상세 조회</li>
+              <li>오늘의 금기 모달</li>
+              <li>전체 페이지 대신 목록 내부 스크롤 적용</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section class="slide compact">
+        <span class="eyebrow">09. Generator & Community</span>
+        <h2>생성한 괴담을 바로 공유하는 흐름</h2>
+        <div class="flow">
+          <span>7개 조건 입력</span>
+          <span>LLM 생성</span>
+          <span>JSON 파싱</span>
+          <span>생성 결과 출력</span>
+          <span>창작담 게시</span>
+        </div>
+        <div class="grid two">
+          <article class="card">
+            <strong>신규 기록실</strong>
+            <ul>
+              <li>지역, 장소, 괴이 유형, 금기, 시간, 조건, 결말 입력</li>
+              <li>common.llm_factory를 통한 Groq/Ollama 모델 연결</li>
+              <li>생성 결과 RAGAS 평가 흐름 연동</li>
+              <li>생성 결과 영역 독립 스크롤</li>
+            </ul>
+          </article>
+          <article class="card">
+            <strong>열린 게시판</strong>
+            <ul>
+              <li>목격담 / 창작담 탭 구분</li>
+              <li>게시글 작성, 목록, 상세, 검색</li>
+              <li>작성자 본인만 수정·삭제 가능</li>
+              <li>창작담 좋아요 토글</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section class="slide compact">
+        <span class="eyebrow">10. Accounts</span>
+        <h2>Session 기반 인증과 마이페이지</h2>
+        <div class="grid three">
+          <article class="card">
+            <strong>회원가입</strong>
+            <p>아이디 중복, 비밀번호 길이, 비밀번호 확인 일치 검증 후 자동 로그인합니다.</p>
+          </article>
+          <article class="card">
+            <strong>로그인 / 로그아웃</strong>
+            <p>Django Session, CSRF Token, `request.user`, `@login_required`를 사용합니다.</p>
+          </article>
+          <article class="card">
+            <strong>마이페이지</strong>
+            <p>사용자 정보, 보관함, 내가 쓴 글, 수정·삭제, 회원 탈퇴 기능을 제공합니다.</p>
+          </article>
+        </div>
+        <div class="flow">
+          <span>Form POST</span>
+          <span>Form 검증</span>
+          <span>authenticate</span>
+          <span>login()</span>
+          <span>Session 저장</span>
+        </div>
+      </section>
+
+      <section class="slide">
+        <div class="ending">
+          <span class="eyebrow">Conclusion</span>
+          <h2>괴담을 찾고, 만들고, 공유하는 기록소</h2>
+          <p class="lead">
+            괴이바의 괴이 기록 보관소는 단순한 게시판이 아니라 데이터 조회, AI 생성, 커뮤니티 공유,
+            개인 보관함까지 연결한 괴담 콘텐츠 서비스입니다.
+          </p>
+        </div>
+      </section>
+    </main>
+    <button class="next-slide-button" id="nextSlideButton" type="button">NEXT</button>
+    <script>
+      const nextSlideButton = document.querySelector("#nextSlideButton");
+      const slides = Array.from(document.querySelectorAll(".slide"));
+
+      function getCurrentSlideIndex() {
+        const anchorY = window.scrollY + window.innerHeight * 0.45;
+        let currentIndex = 0;
+
+        slides.forEach((slide, index) => {
+          if (slide.offsetTop <= anchorY) {
+            currentIndex = index;
+          }
+        });
+
+        return currentIndex;
+      }
+
+      function updateNextButton() {
+        const currentIndex = getCurrentSlideIndex();
+        const isLastSlide = currentIndex >= slides.length - 1;
+        nextSlideButton.textContent = isLastSlide ? "END" : "NEXT";
+        nextSlideButton.disabled = isLastSlide;
+      }
+
+      nextSlideButton.addEventListener("click", () => {
+        const nextSlide = slides[getCurrentSlideIndex() + 1];
+        if (!nextSlide) return;
+        nextSlide.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+
+      window.addEventListener("scroll", updateNextButton, { passive: true });
+      window.addEventListener("resize", updateNextButton);
+      updateNextButton();
+    </script>
+  </body>
+</html>

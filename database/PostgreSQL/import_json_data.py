@@ -27,10 +27,17 @@ from archive.models import DcinsidePost, HorrorStory, MythEntity, Superstition  
 
 
 DATA_DIR = PROJECT_ROOT / "database" / "data"
+PROCESSED_DIR = PROJECT_ROOT / "database" / "processed"
 
 
 def load_json(filename: str) -> list[dict]:
     path = DATA_DIR / filename
+    with path.open(encoding="utf-8") as file:
+        return json.load(file)
+
+
+def load_processed_json(filename: str) -> list[dict]:
+    path = PROCESSED_DIR / filename
     with path.open(encoding="utf-8") as file:
         return json.load(file)
 
@@ -146,39 +153,35 @@ def category_from_dcinside_title(title: str) -> str | None:
     return None
 
 
-def title_from_dcinside_row(raw_title: str, content: str) -> str:
-    """태그뿐인 DCInside title 대신 화면에 보여줄 제목을 만든다."""
-
-    normalized_title = (raw_title or "").strip()
-    if normalized_title and not normalized_title.startswith("["):
-        return normalized_title[:200]
-    return make_preview(content, limit=60)[:200]
-
-
 def import_dcinside_posts() -> int:
-    rows = load_json("dcinside_horror_filtered.json")
+    rows = load_processed_json("dcinside_horror_processed.json")
     count = 0
 
     for row in rows:
-        raw_title = row.get("title") or ""
-        content = row.get("content") or ""
+        metadata = row.get("metadata") or {}
+        raw_title = metadata.get("raw_title") or ""
+        content = row.get("cleaned_text") or row.get("description") or ""
+        keywords = row.get("keywords") or []
         source = row.get("source") or "dcinside_gongpow"
-        category = category_from_dcinside_title(raw_title)
+        category = metadata.get("category") or category_from_dcinside_title(raw_title)
 
         # 분류가 확실하지 않거나 본문이 비어 있는 row는 게시판 seed 품질을 위해 제외한다.
         if not category or not content.strip():
             continue
 
-        source_ref_id = make_source_ref_id(source, raw_title, row.get("region"), content)
+        source_ref_id = str(
+            row.get("source_id")
+            or make_source_ref_id(source, raw_title, metadata.get("region"), content)
+        )
         DcinsidePost.objects.update_or_create(
             source=source,
             source_ref_id=source_ref_id,
             defaults={
                 "category": category,
-                "title": title_from_dcinside_row(raw_title, content),
-                "region": row.get("region") or "한국",
+                "region": metadata.get("region") or "한국",
                 "content": content,
-                "metadata": {"raw_title": raw_title},
+                "keywords": keywords,
+                "metadata": metadata,
                 "is_active": True,
             },
         )
@@ -201,3 +204,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

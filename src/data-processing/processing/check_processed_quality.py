@@ -20,7 +20,7 @@ from typing import Any
 
 
 # 프로젝트 기준 경로를 잡아서 어디에서 실행해도 같은 폴더를 바라보게 한다.
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
 PROCESSED_DIR = PROJECT_ROOT / "database" / "processed"
 
 INTEGRATED_FILE = PROCESSED_DIR / "integrated_horror_processed.json"
@@ -35,6 +35,8 @@ WRITE_QUALITY_JSON = False
 # 문서 간 유사도 비교는 비용이 커질 수 있으므로 제목이 비슷한 후보만 좁혀서 본문을 비교한다.
 TITLE_SIMILARITY_THRESHOLD = 0.9
 TEXT_SIMILARITY_THRESHOLD = 0.85
+MAX_SIMILAR_TITLE_COMPARISONS = 20000
+MAX_SIMILAR_CANDIDATES = 100
 
 
 def read_json(path: Path) -> list[dict[str, Any]]:
@@ -238,6 +240,7 @@ def find_similar_documents(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def find_similar_title_pairs(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """제목이 매우 유사한 문서 쌍을 본문 비교 전 단계의 검토 후보로 찾는다."""
     candidates = []
+    comparison_count = 0
     short_rows = [
         row
         for row in rows
@@ -249,6 +252,10 @@ def find_similar_title_pairs(rows: list[dict[str, Any]]) -> list[dict[str, Any]]
         left_text = normalize_for_compare(left.get("cleaned_text"))[:1500]
 
         for right in short_rows[index + 1 :]:
+            comparison_count += 1
+            if comparison_count > MAX_SIMILAR_TITLE_COMPARISONS:
+                return candidates
+
             right_title = normalize_for_compare(right.get("title"))
             right_text = normalize_for_compare(right.get("cleaned_text"))[:1500]
 
