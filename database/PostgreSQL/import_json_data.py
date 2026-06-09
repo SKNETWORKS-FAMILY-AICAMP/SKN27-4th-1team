@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import hashlib
 from pathlib import Path
 
 
@@ -22,7 +23,7 @@ import django  # noqa: E402
 
 django.setup()
 
-from archive.models import HorrorStory, MythEntity, Superstition  # noqa: E402
+from archive.models import DcinsidePost, HorrorStory, MythEntity, Superstition  # noqa: E402
 
 
 DATA_DIR = PROJECT_ROOT / "database" / "data"
@@ -41,14 +42,24 @@ def make_preview(content: str, limit: int = 180) -> str:
     return normalized[:limit].rstrip() + "..."
 
 
+def make_source_ref_id(*parts: object, length: int = 24) -> str:
+    """원본 id가 없는 JSON row를 반복 적재할 수 있도록 안정적인 해시 id를 만든다."""
+
+    raw = "||".join(str(part or "").strip() for part in parts)
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:length]
+
+
 def import_horror_stories() -> int:
     rows = load_json("verified_korean_horror_master.json")
     count = 0
 
-    for i, row in enumerate(rows):
+    for row in rows:
         source = row.get("source") or "verified_korean_horror_master"
-        source_ref_id = str(row.get("id") or i)
         content = row.get("content") or ""
+        source_ref_id = str(
+            row.get("id")
+            or make_source_ref_id(source, row.get("title"), row.get("region"), content)
+        )
 
         HorrorStory.objects.update_or_create(
             source=source,
@@ -74,14 +85,17 @@ def import_myth_entities() -> int:
     count = 0
     source = "ultimate_global_mythology_1000"
 
-    for i, row in enumerate(rows):
+    for row in rows:
         metadata = {}
         if "habitats" in row:
             metadata["habitats"] = row.get("habitats") or []
 
         MythEntity.objects.update_or_create(
             source=source,
-            source_ref_id=str(row.get("id") or i),
+            source_ref_id=str(
+                row.get("id")
+                or make_source_ref_id(source, row.get("name"), row.get("origin"))
+            ),
             defaults={
                 "name": row.get("name") or "",
                 "origin": row.get("origin") or "",
@@ -99,49 +113,6 @@ def import_myth_entities() -> int:
         count += 1
 
     return count
-
-
-
-def import_dcinside_stories() -> int:
-    dc_path = DATA_DIR / "dcinside_horror_filtered.json"
-    if not dc_path.exists():
-        print("dcinside_horror_filtered.json 없음, 건너뜀")
-        return 0
-
-    with dc_path.open(encoding="utf-8") as f:
-        rows = json.load(f)
-
-    CATEGORY_TAGS = {'[경험]', '[괴담]', '[공포]', '[창작]', '[사건/사고]'}
-    count = 0
-    source = "dcinside_horror"
-
-    for i, row in enumerate(rows):
-        title_tag = row.get("title", "").strip()
-        content = row.get("content", "").strip()
-        if not content:
-            continue
-
-        title = content[:40].strip() + "..." if title_tag in CATEGORY_TAGS else title_tag
-        category = title_tag if title_tag in CATEGORY_TAGS else ""
-
-        HorrorStory.objects.update_or_create(
-            source=source,
-            source_ref_id=str(i),
-            defaults={
-                "title": title,
-                "language": "ko",
-                "region": "한국",
-                "url": "",
-                "preview": make_preview(content),
-                "content": content,
-                "category": category,
-                "metadata": {},
-            },
-        )
-        count += 1
-
-    return count
-
 
 def import_superstitions() -> int:
     rows = load_json("misin.json")
@@ -164,12 +135,64 @@ def import_superstitions() -> int:
     return count
 
 
+def category_from_dcinside_title(title: str) -> str | None:
+    """DCInside title 태그를 열린 게시판 분류값으로 변환한다."""
+
+    normalized = (title or "").strip()
+    if normalized == "[창작]":
+        return "CREATION"
+    if normalized in {"[경험]", "[괴담]", "[공포]", "[사건/사고]"}:
+        return "WITNESS"
+    return None
+
+
+def title_from_dcinside_row(raw_title: str, content: str) -> str:
+    """태그뿐인 DCInside title 대신 화면에 보여줄 제목을 만든다."""
+
+    normalized_title = (raw_title or "").strip()
+    if normalized_title and not normalized_title.startswith("["):
+        return normalized_title[:200]
+    return make_preview(content, limit=60)[:200]
+
+
+def import_dcinside_posts() -> int:
+    rows = load_json("dcinside_horror_filtered.json")
+    count = 0
+
+    for row in rows:
+        raw_title = row.get("title") or ""
+        content = row.get("content") or ""
+        source = row.get("source") or "dcinside_gongpow"
+        category = category_from_dcinside_title(raw_title)
+
+        # 분류가 확실하지 않거나 본문이 비어 있는 row는 게시판 seed 품질을 위해 제외한다.
+        if not category or not content.strip():
+            continue
+
+        source_ref_id = make_source_ref_id(source, raw_title, row.get("region"), content)
+        DcinsidePost.objects.update_or_create(
+            source=source,
+            source_ref_id=source_ref_id,
+            defaults={
+                "category": category,
+                "title": title_from_dcinside_row(raw_title, content),
+                "region": row.get("region") or "한국",
+                "content": content,
+                "metadata": {"raw_title": raw_title},
+                "is_active": True,
+            },
+        )
+        count += 1
+
+    return count
+
+
 def main() -> None:
     imported = {
         "horror_stories": import_horror_stories(),
-        "dcinside_stories": import_dcinside_stories(),
         "myth_entities": import_myth_entities(),
         "superstitions": import_superstitions(),
+        "dcinside_posts": import_dcinside_posts(),
     }
 
     for table_name, count in imported.items():
