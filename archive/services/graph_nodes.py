@@ -142,6 +142,88 @@ def tts_stop_node(state: ArchiveState) -> dict[str, Any]:
     }
 
 
+def build_message_response(
+    message: str,
+    keywords: list[str] | None = None,
+    query_analysis: dict[str, Any] | None = None,
+    feedback: str = "",
+    status: str = "",
+    is_passed: bool = True,
+) -> dict[str, Any]:
+    """검색/생성 없이 사용자에게 바로 보여줄 종료 상태를 만든다."""
+    response = {
+        "keywords": keywords or [],
+        "search_results": [],
+        "source_story": {},
+        "generated_story": message,
+        "llm_response": message,
+        "skip_evaluation": True,
+        "evaluation": {},
+        "is_passed": is_passed,
+    }
+    if query_analysis is not None:
+        response["query_analysis"] = query_analysis
+
+    if feedback:
+        response["evaluation"] = {"feedback": feedback}
+
+    if status:
+        response["status"] = status
+
+    return response
+
+
+def build_search_choice_response(
+    question: str,
+    search_results: list[dict[str, Any]],
+    conversation_history: list[dict[str, str]],
+    keywords: list[str],
+    query_analysis: dict[str, Any],
+) -> dict[str, Any]:
+    """검색 결과와 분위기 안내 LLM 응답을 LangGraph 상태로 묶는다."""
+    choice_prompt = build_search_choice_prompt(
+        question=question,
+        search_results=search_results,
+        conversation_history=conversation_history,
+    )
+    return {
+        "keywords": keywords,
+        "query_analysis": query_analysis,
+        "search_results": search_results,
+        "source_story": search_results[0],
+        "llm_response": invoke_llm(choice_prompt),
+        "skip_evaluation": True,
+        "evaluation": {},
+        "is_passed": True,
+    }
+
+
+def build_failed_evaluation(feedback: str) -> dict[str, Any]:
+    """사전 검수 실패를 평가 JSON 형태로 만든다."""
+    return {
+        "keyword_passed": True,
+        "consistency_passed": True,
+        "style_passed": False,
+        "atmosphere_passed": False,
+        "feedback": feedback,
+    }
+
+
+def build_story_log_extra(
+    source_story: dict[str, Any],
+    feedback: str = "",
+) -> dict[str, Any]:
+    """생성/수정 로그에 공통으로 들어갈 기록 식별값을 만든다."""
+    extra = {
+        "record_type": source_story.get("type", ""),
+        "record_id": source_story.get("id", ""),
+    }
+    if feedback:
+        extra["feedback"] = feedback
+
+    return extra
+
+
 def decide_after_generate_node(state: ArchiveState) -> Literal["evaluate", "finish"]:
     """검토할 원본과 생성문이 있을 때만 평가 노드를 실행한다."""
     if state.get("skip_evaluation"):
@@ -306,6 +388,19 @@ def classify_intent_and_keywords(
     return classify_intent_and_keywords_by_rule(question)
 
 
+def build_intent_classification(
+    intent: str,
+    keywords: list[str] | None = None,
+    query_analysis: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """intent 분류 결과 dict를 같은 구조로 만든다."""
+    return {
+        "intent": intent,
+        "keywords": keywords or [],
+        "query_analysis": query_analysis or build_empty_query_analysis(),
+    }
+
+
 def classify_intent_and_keywords_by_rule(question: str) -> dict[str, Any]:
     """LLM 분류 실패 시 기존 규칙으로 intent와 키워드를 만든다."""
     normalized_question = question.lower().strip()
@@ -319,18 +414,10 @@ def classify_intent_and_keywords_by_rule(question: str) -> dict[str, Any]:
     ]
     for marker in tts_stop_markers:
         if marker in normalized_question:
-            return {
-                "intent": "tts_stop",
-                "keywords": [],
-                "query_analysis": build_empty_query_analysis(),
-            }
+            return build_intent_classification("tts_stop")
 
     if is_tts_read_request(normalized_question):
-        return {
-            "intent": "tts_request",
-            "keywords": [],
-            "query_analysis": build_empty_query_analysis(),
-        }
+        return build_intent_classification("tts_request")
 
     recommend_markers = [
         "추천",
@@ -343,20 +430,16 @@ def classify_intent_and_keywords_by_rule(question: str) -> dict[str, Any]:
         if marker in normalized_question:
             recommendation_keywords = extract_recommendation_command_keywords(question)
             if recommendation_keywords:
-                return {
-                    "intent": "archive_query",
-                    "keywords": recommendation_keywords,
-                    "query_analysis": build_query_analysis_from_keywords(
+                return build_intent_classification(
+                    "archive_query",
+                    recommendation_keywords,
+                    build_query_analysis_from_keywords(
                         question,
                         recommendation_keywords,
                     ),
-                }
+                )
 
-            return {
-                "intent": "recommend_request",
-                "keywords": [],
-                "query_analysis": build_empty_query_analysis(),
-            }
+            return build_intent_classification("recommend_request")
 
     archive_markers = [
         "괴담",
@@ -377,28 +460,24 @@ def classify_intent_and_keywords_by_rule(question: str) -> dict[str, Any]:
     for marker in archive_markers:
         if marker in normalized_question:
             keywords = extract_keywords(question)
-            return {
-                "intent": "archive_query",
-                "keywords": keywords,
-                "query_analysis": build_query_analysis_from_keywords(
+            return build_intent_classification(
+                "archive_query",
+                keywords,
+                build_query_analysis_from_keywords(
                     question,
                     keywords,
                 ),
-            }
+            )
 
     if is_simple_general_chat(question):
-        return {
-            "intent": "general_chat",
-            "keywords": [],
-            "query_analysis": build_empty_query_analysis(),
-        }
+        return build_intent_classification("general_chat")
 
     keywords = extract_keywords(question)
-    return {
-        "intent": "archive_query",
-        "keywords": keywords,
-        "query_analysis": build_query_analysis_from_keywords(question, keywords),
-    }
+    return build_intent_classification(
+        "archive_query",
+        keywords,
+        build_query_analysis_from_keywords(question, keywords),
+    )
 
 
 def parse_intent_classification_response(raw_response: str) -> dict[str, Any]:
@@ -905,34 +984,20 @@ def recommend_node(state: ArchiveState) -> dict[str, Any]:
             )[:5]
 
             if search_results:
-                choice_prompt = build_search_choice_prompt(
+                return build_search_choice_response(
                     question=question,
                     search_results=search_results,
                     conversation_history=state.get("conversation_history", []),
+                    keywords=[],
+                    query_analysis=query_analysis,
                 )
-                return {
-                    "keywords": [],
-                    "query_analysis": query_analysis,
-                    "search_results": search_results,
-                    "source_story": search_results[0],
-                    "llm_response": invoke_llm(choice_prompt),
-                    "skip_evaluation": True,
-                    "evaluation": {},
-                    "is_passed": True,
-                }
 
         message = "비슷한 괴담 기록을 찾지 못했습니다. 먼저 기록 하나를 열어 주십시오."
-        return {
-            "keywords": [],
-            "query_analysis": query_analysis,
-            "search_results": [],
-            "source_story": {},
-            "generated_story": message,
-            "llm_response": message,
-            "skip_evaluation": True,
-            "evaluation": {"feedback": "추천 기준이 없어 추천을 생략했습니다."},
-            "is_passed": True,
-        }
+        return build_message_response(
+            message=message,
+            query_analysis=query_analysis,
+            feedback="추천 기준이 없어 추천을 생략했습니다.",
+        )
 
     if keywords and (
         not query_analysis.get("search_query")
@@ -965,33 +1030,20 @@ def recommend_node(state: ArchiveState) -> dict[str, Any]:
     )[:5]
     if not search_results:
         message = "말씀하신 조건을 제외하고 추천할 만한 기록을 찾지 못했습니다."
-        return {
-            "keywords": keywords,
-            "query_analysis": query_analysis,
-            "search_results": [],
-            "source_story": {},
-            "generated_story": message,
-            "llm_response": message,
-            "skip_evaluation": True,
-            "evaluation": {"feedback": "추천 기준이 없어 추천을 생략했습니다."},
-            "is_passed": True,
-        }
+        return build_message_response(
+            message=message,
+            keywords=keywords,
+            query_analysis=query_analysis,
+            feedback="추천 기준이 없어 추천을 생략했습니다.",
+        )
 
-    choice_prompt = build_search_choice_prompt(
+    return build_search_choice_response(
         question=question,
         search_results=search_results,
         conversation_history=state.get("conversation_history", []),
+        keywords=keywords,
+        query_analysis=query_analysis,
     )
-    return {
-        "keywords": keywords,
-        "query_analysis": query_analysis,
-        "search_results": search_results,
-        "source_story": search_results[0],
-        "llm_response": invoke_llm(choice_prompt),
-        "skip_evaluation": True,
-        "evaluation": {},
-        "is_passed": True,
-    }
 
 
 def extract_recent_context_keywords(
@@ -1043,38 +1095,22 @@ def search_node(state: ArchiveState) -> dict[str, Any]:
         archive_context,
     )[:5]
 
-    source_story = {}
-    if search_results:
-        source_story = search_results[0]
-    elif not search_results:
+    if not search_results:
         message = "관련 괴담 기록을 찾지 못했습니다. 다른 키워드로 다시 물어봐 주세요."
-        return {
-            "keywords": keywords,
-            "query_analysis": query_analysis,
-            "search_results": [],
-            "source_story": {},
-            "generated_story": message,
-            "llm_response": message,
-            "skip_evaluation": True,
-            "evaluation": {"feedback": "검색 결과가 없어 생성과 평가를 생략했습니다."},
-            "is_passed": True,
-        }
+        return build_message_response(
+            message=message,
+            keywords=keywords,
+            query_analysis=query_analysis,
+            feedback="검색 결과가 없어 생성과 평가를 생략했습니다.",
+        )
 
-    choice_prompt = build_search_choice_prompt(
+    return build_search_choice_response(
         question=question,
         search_results=search_results,
         conversation_history=state.get("conversation_history", []),
+        keywords=keywords,
+        query_analysis=query_analysis,
     )
-    return {
-        "keywords": keywords,
-        "query_analysis": query_analysis,
-        "search_results": search_results,
-        "source_story": source_story,
-        "llm_response": invoke_llm(choice_prompt),
-        "skip_evaluation": True,
-        "evaluation": {},
-        "is_passed": True,
-    }
 
 
 def get_semantic_search_query(
@@ -1116,10 +1152,7 @@ def generate_node(state: ArchiveState) -> dict[str, Any]:
     if not generated_story.strip():
         logging.getLogger(__name__).warning(
             "Archive generation LLM returned empty response",
-            extra={
-                "record_type": source_story.get("type", ""),
-                "record_id": source_story.get("id", ""),
-            },
+            extra=build_story_log_extra(source_story),
         )
         message = get_empty_generation_message()
         return {
@@ -1152,20 +1185,13 @@ def evaluation_node(state: ArchiveState) -> dict[str, Any]:
     if precheck_feedback:
         logging.getLogger(__name__).warning(
             "Archive generated story failed precheck",
-            extra={
-                "feedback": precheck_feedback,
-                "record_type": state.get("source_story", {}).get("type", ""),
-                "record_id": state.get("source_story", {}).get("id", ""),
-            },
+            extra=build_story_log_extra(
+                state.get("source_story", {}),
+                precheck_feedback,
+            ),
         )
         return {
-            "evaluation": {
-                "keyword_passed": True,
-                "consistency_passed": True,
-                "style_passed": False,
-                "atmosphere_passed": False,
-                "feedback": precheck_feedback,
-            },
+            "evaluation": build_failed_evaluation(precheck_feedback),
             "is_passed": False,
             "llm_response": generated_story,
         }
@@ -1214,10 +1240,7 @@ def revise_node(state: ArchiveState) -> dict[str, Any]:
         generated_story = state.get("generated_story", "").strip()
         logging.getLogger(__name__).warning(
             "Archive revision LLM returned empty response",
-            extra={
-                "record_type": state.get("source_story", {}).get("type", ""),
-                "record_id": state.get("source_story", {}).get("id", ""),
-            },
+            extra=build_story_log_extra(state.get("source_story", {})),
         )
         if not generated_story:
             message = get_empty_generation_message()
@@ -1240,11 +1263,10 @@ def revise_node(state: ArchiveState) -> dict[str, Any]:
     if precheck_feedback:
         logging.getLogger(__name__).warning(
             "Archive revised story failed precheck",
-            extra={
-                "feedback": precheck_feedback,
-                "record_type": state.get("source_story", {}).get("type", ""),
-                "record_id": state.get("source_story", {}).get("id", ""),
-            },
+            extra=build_story_log_extra(
+                state.get("source_story", {}),
+                precheck_feedback,
+            ),
         )
         message = get_empty_generation_message()
         return {

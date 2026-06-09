@@ -595,7 +595,7 @@
           });
       }
 
-      restoreChatState();
+      removeStoredChatState();
       window.addEventListener("pagehide", saveChatState);
       if (logoutLink) {
         logoutLink.addEventListener("click", clearChatState);

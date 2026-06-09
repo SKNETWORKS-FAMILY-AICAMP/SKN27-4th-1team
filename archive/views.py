@@ -11,6 +11,7 @@ from .models import Superstition
 from .services.graph import run_archive_chatbot, run_archive_record_chatbot
 from .services.session_state import (
     clear_last_tts_error,
+    clear_user_archive_session,
     get_archive_context,
     get_conversation_history,
     get_last_tts_error,
@@ -132,6 +133,7 @@ def index(request):
 
 def chatbot(request):
     """괴담 조회 챗봇 화면을 렌더링한다."""
+    clear_user_archive_session(request, request.user)
     return render(
         request,
         'archive/chatbot.html',
