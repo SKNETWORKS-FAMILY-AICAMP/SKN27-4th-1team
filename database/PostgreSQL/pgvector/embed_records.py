@@ -4,7 +4,7 @@
 
     python database/PostgreSQL/pgvector/embed_records.py
 
-기본 대상 테이블은 horror_stories, myth_entities 이다.
+기본 대상 테이블은 horror_stories, myth_entities, dcinside_posts 이다.
 각 레코드는 semantic_chunker.py로 청크 분리한 뒤 multilingual-e5-base 모델로
 768차원 벡터를 만들고 record_embeddings 테이블에 upsert 한다.
 """
@@ -40,7 +40,7 @@ django.setup()
 
 from django.db import connection, transaction  # noqa: E402
 
-from archive.models import HorrorStory, MythEntity  # noqa: E402
+from archive.models import DcinsidePost, HorrorStory, MythEntity  # noqa: E402
 from semantic_chunker import chunk_record  # noqa: E402
 
 
@@ -50,7 +50,8 @@ DEFAULT_BATCH_SIZE = 32
 SOURCE_ALL = "all"
 SOURCE_HORROR = "horror_stories"
 SOURCE_MYTH = "myth_entities"
-SOURCE_CHOICES = (SOURCE_ALL, SOURCE_HORROR, SOURCE_MYTH)
+SOURCE_DCINSIDE = "dcinside_posts"
+SOURCE_CHOICES = (SOURCE_ALL, SOURCE_HORROR, SOURCE_MYTH, SOURCE_DCINSIDE)
 
 
 @dataclass(frozen=True)
@@ -126,7 +127,11 @@ def parse_args() -> argparse.Namespace:
 def iter_records(source: str, limit: int | None = None) -> Iterable[SourceRecord]:
     """선택한 원본 테이블의 레코드를 SourceRecord 형태로 순회한다."""
 
-    selected_sources = (SOURCE_HORROR, SOURCE_MYTH) if source == SOURCE_ALL else (source,)
+    selected_sources = (
+        SOURCE_HORROR,
+        SOURCE_MYTH,
+        SOURCE_DCINSIDE,
+    ) if source == SOURCE_ALL else (source,)
 
     remaining = limit
     for selected in selected_sources:
@@ -150,6 +155,8 @@ def _queryset_for_source(source: str):
         return HorrorStory.objects.order_by("id")
     if source == SOURCE_MYTH:
         return MythEntity.objects.order_by("id")
+    if source == SOURCE_DCINSIDE:
+        return DcinsidePost.objects.filter(is_active=True).order_by("id")
     raise ValueError(f"지원하지 않는 source: {source}")
 
 
@@ -195,13 +202,33 @@ def _record_from_model(source: str, obj) -> SourceRecord:
             },
         )
 
+    if source == SOURCE_DCINSIDE:
+        return SourceRecord(
+            source_table=SOURCE_DCINSIDE,
+            source_id=obj.id,
+            title=obj.title or "",
+            parts=[obj.content or ""],
+            metadata={
+                "source": obj.source,
+                "source_ref_id": obj.source_ref_id,
+                "category": obj.category,
+                "region": obj.region,
+                "is_active": obj.is_active,
+                **(obj.metadata or {}),
+            },
+        )
+
     raise ValueError(f"지원하지 않는 source: {source}")
 
 
 def reset_embeddings(source: str) -> None:
     """선택한 source의 기존 임베딩을 삭제한다."""
 
-    sources = (SOURCE_HORROR, SOURCE_MYTH) if source == SOURCE_ALL else (source,)
+    sources = (
+        SOURCE_HORROR,
+        SOURCE_MYTH,
+        SOURCE_DCINSIDE,
+    ) if source == SOURCE_ALL else (source,)
     with connection.cursor() as cursor:
         cursor.execute(
             "DELETE FROM record_embeddings WHERE source_table = ANY(%s)",

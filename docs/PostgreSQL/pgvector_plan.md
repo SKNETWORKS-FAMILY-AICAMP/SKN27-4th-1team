@@ -59,13 +59,13 @@ PostgreSQL에 저장된 괴담/괴이/금기/게시글 텍스트를 임베딩 �
 | --- | --- | --- |
 | `horror_stories` | `title`, `region`, `category`, `preview`, `content` | 높음 |
 | `myth_entities` | `name`, `origin`, `description`, `behavior`, `weakness`, `history`, `signs`, `survival_rules` | 중간 |
-| `post_post` | `title`, `region`, `body`, `category` | 글 길이에 따라 다름 |
+| `dcinside_posts` | `title`, `region`, `content`, `category` | 글 길이에 따라 다름 |
 
-초기 MVP에서는 `horror_stories`, `myth_entities`를 먼저 임베딩한다.
+초기 MVP에서는 `horror_stories`, `myth_entities`, `dcinside_posts`를 임베딩한다.
 
 `superstitions`는 현재 검색 대상에서 제외하기로 했으므로 pgvector 임베딩을 만들지 않는다.
 
-`post_post`는 사용자가 계속 작성/수정/삭제하는 데이터이므로, 2차 단계에서 연결한다.
+`post_post`는 사용자가 계속 작성/수정/삭제하는 데이터이므로 현재 임베딩 대상에서 제외한다. 대신 외부 수집 데이터인 `dcinside_posts`를 검색 대상으로 사용한다.
 
 ## 임베딩 저장 테이블 초안
 
@@ -376,7 +376,7 @@ python database\PostgreSQL\pgvector\search_vectors.py "폐교 음악실 귀신"
 | --- | --- | --- |
 | PostgreSQL 이미지 | `postgres:16` 유지 vs `pgvector/pgvector:pg16` 변경 | pgvector 이미지 권장 |
 | 임베딩 테이블 관리 | Django 모델 vs SQL 전용 | 초기에는 SQL 전용 권장 |
-| 임베딩 대상 | 원천 2종만 vs `post_post` 포함 | 1차 `horror_stories`, `myth_entities`, 2차 `post_post` |
+| 임베딩 대상 | 원천 2종만 vs `dcinside_posts` 포함 | `horror_stories`, `myth_entities`, `dcinside_posts` |
 | 청크 방식 | 글자 수 기준 vs 문장/문단 기준 | 문장/문단 기준 |
 | 임베딩 모델 | MiniLM 384차원 vs Ollama qwen3 1024차원 vs Gemini 768/1024차원 vs KURE-v1 1024차원 vs e5-base 768차원 | `intfloat/multilingual-e5-base` 사용 |
 | 화면 연결 | 기록 열람실 검색 vs 별도 테스트 API | 먼저 스크립트 검색 테스트 |
