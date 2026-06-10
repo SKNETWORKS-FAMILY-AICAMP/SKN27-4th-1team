@@ -209,4 +209,5 @@ SINGLE_KEYWORD_WEAK_MATCH_COUNTS = {
     "horror_story": 3,
     "myth_entity": 2,
     "superstition": 1,
+    "dcinside_post": 3,
 }
