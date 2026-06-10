@@ -583,7 +583,7 @@ static/css, static/js, images 적용
 #### 지역 정보실
 
 <div align="center">
-  <img src="docs/img/region.png" width="760" />
+  <img src="docs/img/region2.png" width="760" />
 </div>
 
 - URL: /regions/regioninfo/
