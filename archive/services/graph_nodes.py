@@ -38,6 +38,72 @@ class ArchiveState(TypedDict, total=False):
     skip_evaluation: bool
 
 
+BANNED_PHRASES = (
+    "귀신이었다",
+    "악령이었다",
+    "괴물이었다",
+    "무서웠다",
+    "소름이 돋았다",
+    "공포에 질렸다",
+    "꿈이었다",
+    "환각이었다",
+)
+
+LITERARY_PHRASES = (
+    "아주 무서운 밤",
+    "무서운 밤",
+    "그날 밤",
+    "어둠이 뒤덮",
+    "완전히 어둠",
+    "몸이 떨리기 시작",
+    "몸이 떨렸다",
+    "손이 떨렸다",
+    "정적이 흘렀",
+    "알 수 없는 공포",
+    "불길한 예감",
+    "기묘한 분위기",
+    "섬뜩한 기분",
+    "차가운 공기",
+    "숨이 멎",
+    "공포에 질",
+    "그 순간 나는 알았다",
+    "그 순간 알았다",
+    "아직도 내 가슴",
+    "가슴에 남아",
+    "잊을 수 없다",
+    "눈앞에 펼쳐",
+    "서서히",
+    "희미한 불빛",
+)
+
+COMMUNITY_MARKERS = (
+    "근데",
+    "그런데",
+    "아니",
+    "지금 생각하면",
+    "정확히는",
+    "기억",
+    "아무튼",
+    "이상한 게",
+    "그때는",
+    "나중에",
+    "분명",
+    "솔직히",
+)
+
+CRITERION_SCORE_KEYS = (
+    "contradiction",
+    "reinterpretation",
+    "restraint",
+    "realism",
+    "tension_curve",
+    "cliche_avoidance",
+    "aftertaste",
+    "community_voice",
+    "anti_literary_style",
+)
+
+
 def intent_node(state: ArchiveState) -> dict[str, Any]:
     """사용자 입력의 의도와 검색 키워드를 분류한다."""
     if state.get("source_story"):
@@ -180,7 +246,7 @@ def build_search_choice_response(
     keywords: list[str],
     query_analysis: dict[str, Any],
 ) -> dict[str, Any]:
-    """검색 결과와 분위기 안내 LLM 응답을 LangGraph 상태로 묶는다."""
+    """검색 결과와 검색 안내 LLM 응답을 LangGraph 상태로 묶는다."""
     choice_prompt = build_search_choice_prompt(
         question=question,
         search_results=search_results,
@@ -205,6 +271,12 @@ def build_failed_evaluation(feedback: str) -> dict[str, Any]:
         "consistency_passed": True,
         "style_passed": False,
         "atmosphere_passed": False,
+        "criterion_scores": {
+            key: 0
+            for key in CRITERION_SCORE_KEYS
+        },
+        "score_total": 0.0,
+        "automatic_penalties": [feedback],
         "feedback": feedback,
     }
 
@@ -241,6 +313,114 @@ def decide_after_generate_node(state: ArchiveState) -> Literal["evaluate", "fini
 def get_empty_generation_message() -> str:
     """생성 모델이 본문을 돌려주지 않았을 때 사용자에게 보여줄 메시지를 만든다."""
     return "선택한 기록을 다시 엮지 못했습니다. 잠시 후 다시 시도해 주세요."
+
+
+def extract_story_from_model_response(response: str) -> str:
+    """JSON 응답이면 new_story만 꺼내고, 아니면 원문을 그대로 사용한다."""
+    text = response.strip()
+    parsed_response = parse_json_object(text)
+    if parsed_response:
+        story = parsed_response.get("new_story")
+        if isinstance(story, str) and story.strip():
+            return story.strip()
+
+    return text
+
+
+def detect_phrases(story: str, phrases: tuple[str, ...]) -> list[str]:
+    """본문에 포함된 금지/패널티 표현을 찾는다."""
+    found_phrases = []
+    for phrase in phrases:
+        if phrase in story:
+            found_phrases.append(phrase)
+
+    return found_phrases
+
+
+def has_community_voice(story: str) -> bool:
+    """커뮤니티 게시글 말투로 볼 만한 표지가 있는지 확인한다."""
+    return any(marker in story for marker in COMMUNITY_MARKERS)
+
+
+def calculate_evaluation_total(evaluation: dict[str, Any]) -> float:
+    """criterion_scores 평균을 100점 만점 점수로 바꾼다."""
+    scores = evaluation.get("criterion_scores", {})
+    if not isinstance(scores, dict):
+        return 0.0
+
+    values = []
+    for key in CRITERION_SCORE_KEYS:
+        value = scores.get(key)
+        if isinstance(value, int | float):
+            values.append(max(0.0, min(10.0, float(value))))
+
+    if not values:
+        return 0.0
+
+    return round((sum(values) / len(values)) * 10, 1)
+
+
+def has_required_criterion_scores(evaluation: dict[str, Any]) -> bool:
+    """평가 JSON에 9개 세부 점수가 모두 있는지 확인한다."""
+    scores = evaluation.get("criterion_scores", {})
+    if not isinstance(scores, dict):
+        return False
+
+    for key in CRITERION_SCORE_KEYS:
+        if not isinstance(scores.get(key), int | float):
+            return False
+
+    return True
+
+
+def apply_automatic_penalties(
+    evaluation: dict[str, Any],
+    story: str,
+) -> dict[str, Any]:
+    """소설체와 게시글 말투 부족을 자동 감점으로 반영한다."""
+    final_total = calculate_evaluation_total(evaluation)
+    existing_penalties = evaluation.get("automatic_penalties", [])
+    automatic_penalties = []
+    if isinstance(existing_penalties, list):
+        automatic_penalties = [
+            str(penalty)
+            for penalty in existing_penalties
+            if str(penalty).strip()
+        ]
+
+    banned_hits = detect_phrases(story, BANNED_PHRASES)
+    if banned_hits:
+        final_total = min(final_total, 70.0)
+        automatic_penalties.append(
+            f"직접 공포 표현 발견: {', '.join(banned_hits[:8])}",
+        )
+
+    literary_hits = detect_phrases(story, LITERARY_PHRASES)
+    if literary_hits:
+        final_total = min(final_total, 82.0)
+        automatic_penalties.append(
+            f"문학체 표현 발견: {', '.join(literary_hits[:8])}",
+        )
+
+    if len(literary_hits) >= 3:
+        final_total = min(final_total, 74.0)
+        automatic_penalties.append(
+            "문학체 표현이 3개 이상 발견되어 게시글 느낌이 약함",
+        )
+
+    if not has_community_voice(story):
+        final_total = min(final_total, 84.0)
+        automatic_penalties.append("커뮤니티 게시글 말투 지표가 부족함")
+
+    if story.strip().startswith(("어린 시절", "어릴 적", "그날 밤", "나는")):
+        final_total = min(final_total, 82.0)
+        automatic_penalties.append("도입부가 소설/회상문처럼 시작함")
+
+    return {
+        **evaluation,
+        "score_total": round(final_total, 1),
+        "automatic_penalties": automatic_penalties,
+    }
 
 
 def get_story_precheck_feedback(story: str) -> str:
@@ -1148,7 +1328,7 @@ def generate_node(state: ArchiveState) -> dict[str, Any]:
         source_story=source_story,
         conversation_history=state.get("conversation_history", []),
     )
-    generated_story = invoke_gemma_llm(prompt)
+    generated_story = extract_story_from_model_response(invoke_gemma_llm(prompt))
     if not generated_story.strip():
         logging.getLogger(__name__).warning(
             "Archive generation LLM returned empty response",
@@ -1172,7 +1352,7 @@ def generate_node(state: ArchiveState) -> dict[str, Any]:
 
 
 def evaluation_node(state: ArchiveState) -> dict[str, Any]:
-    """생성된 괴담이 키워드, 원본 일관성, 문체, 분위기 기준을 통과하는지 평가한다."""
+    """생성된 괴담이 키워드, 원본 일관성, 문체, 게시글스러움 기준을 통과하는지 평가한다."""
     generated_story = state.get("generated_story", "")
     if state.get("skip_evaluation"):
         return {
@@ -1203,6 +1383,7 @@ def evaluation_node(state: ArchiveState) -> dict[str, Any]:
     )
     try:
         evaluation = parse_evaluation_response(invoke_llm(prompt))
+        evaluation = apply_automatic_penalties(evaluation, generated_story)
     except Exception:
         logging.getLogger(__name__).exception("Archive evaluation LLM failed")
         return {
@@ -1235,7 +1416,7 @@ def revise_node(state: ArchiveState) -> dict[str, Any]:
         generated_story=state.get("generated_story", ""),
         evaluation=state.get("evaluation", {}),
     )
-    revised_story = invoke_gemma_llm(prompt)
+    revised_story = extract_story_from_model_response(invoke_gemma_llm(prompt))
     if not revised_story.strip():
         generated_story = state.get("generated_story", "").strip()
         logging.getLogger(__name__).warning(
@@ -1364,4 +1545,10 @@ def is_evaluation_passed(evaluation: dict[str, Any]) -> bool:
         if not evaluation.get(key):
             return False
 
-    return True
+    if evaluation.get("rewrite_required_by_editor"):
+        return False
+
+    if not has_required_criterion_scores(evaluation):
+        return False
+
+    return float(evaluation.get("score_total", 0.0)) >= 90.0
