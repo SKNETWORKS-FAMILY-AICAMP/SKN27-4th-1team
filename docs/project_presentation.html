@@ -389,16 +389,16 @@
 
       .next-slide-button {
         position: fixed;
-        right: 18px;
-        bottom: 18px;
+        right: 14px;
+        bottom: 14px;
         z-index: 20;
-        min-width: 72px;
-        padding: 7px 10px;
+        min-width: 60px;
+        padding: 5px 8px;
         color: #fff4f4;
         border: 1px solid var(--red);
         background: rgba(160, 0, 0, 0.88);
         font: inherit;
-        font-size: 12px;
+        font-size: 10px;
         font-weight: 800;
         cursor: pointer;
         box-shadow: 0 8px 18px rgba(0, 0, 0, 0.34);
@@ -453,11 +453,11 @@
         }
 
         .next-slide-button {
-          right: 10px;
-          bottom: 10px;
-          min-width: 58px;
-          padding: 6px 8px;
-          font-size: 11px;
+          right: 8px;
+          bottom: 8px;
+          min-width: 52px;
+          padding: 4px 7px;
+          font-size: 9px;
         }
       }
 
@@ -509,10 +509,9 @@
 
       <section class="slide" id="cover">
         <span class="eyebrow">괴이바</span>
-        <h1>괴이기록 보관소</h1>
+        <h1>괴이 기록 보관소</h1>
         <p class="lead">
-          Django 기반의 괴담 및 금기 아카이브 플랫폼으로, 데이터베이스와
-          LLM을 활용하여 새로운 괴담 창작과 공유 흐름을 지원합니다.
+          괴담 및 금기의 조회와 새로운 괴담 창작과 공유 흐름을 지원합니다.
         </p>
         <div class="badge-list">
           <span class="badge">2026.06.09 - 2026.06.10</span>
@@ -579,8 +578,8 @@
         <span class="eyebrow">03. Concept</span>
         <h2>오래된 괴담 기록소에 접속하는 경험</h2>
         <p class="lead">
-          괴이바는 단순한 정보 검색 사이트가 아니라, 사용자가 금지된 기록을 열람하는 듯한
-          분위기를 느끼도록 설계한 괴담 아카이브 서비스입니다.
+          괴이 기록 보관소는 단순한 정보 검색 사이트가 아니라, 사용자가 오래된  공포 기록을 열람하는 듯한
+          분위기를 느끼도록 설계
         </p>
         <div class="grid three">
           <article class="card">
@@ -666,48 +665,8 @@
         </div>
       </section>
 
-      <section class="slide compact">
-        <span class="eyebrow">06. Test Scenario & Result</span>
-        <h2>테스트 시나리오 및 결과</h2>
-        <p class="lead">
-          테스트 시나리오기준으로 회원가입, 인증, 마이페이지, UI 효과, 통합 연동 항목을 검증했습니다.
-        </p>
-        <div class="table doc-table">
-          <div class="row head">
-            <div class="cell">구분</div>
-            <div class="cell">대표 ID</div>
-            <div class="cell">검증 결과</div>
-          </div>
-          <div class="row">
-            <div class="cell">회원가입</div>
-            <div class="cell">SIGN-01 ~ SIGN-03</div>
-            <div class="cell">정상 가입, 중복 ID 제한, 비밀번호 불일치 검증 모두 PASS</div>
-          </div>
-          <div class="row">
-            <div class="cell">인증/보안</div>
-            <div class="cell">AUTH-01 ~ AUTH-04</div>
-            <div class="cell">로그인, 실패 처리, CSRF 403, 로그아웃 세션 파기 모두 PASS</div>
-          </div>
-          <div class="row">
-            <div class="cell">마이페이지</div>
-            <div class="cell">MY-01 ~ MY-04</div>
-            <div class="cell">사용자 정보, 보관함, 작성 글 목록, 회원 탈퇴 흐름 모두 PASS</div>
-          </div>
-          <div class="row">
-            <div class="cell">Web UI</div>
-            <div class="cell">UI-01 ~ UI-04</div>
-            <div class="cell">글리치, 랜덤 이미지, 금기 자료실과 신규 기록실 내부 스크롤 모두 PASS</div>
-          </div>
-          <div class="row">
-            <div class="cell">통합 연동</div>
-            <div class="cell">INT-01 ~ INT-03</div>
-            <div class="cell">비로그인 접근 제어, next 복귀, AI 생성 결과 게시판 연동 모두 PASS</div>
-          </div>
-        </div>
-      </section>
-
       <section class="slide compact" id="stack">
-        <span class="eyebrow">07. System Flow</span>
+        <span class="eyebrow">06. System Flow</span>
         <h2>시스템 흐름</h2>
         <div class="grid two">
           <article class="card">
@@ -740,7 +699,7 @@
       </section>
 
       <section class="slide compact" id="db">
-        <span class="eyebrow">08. Database</span>
+        <span class="eyebrow">07. Database</span>
         <h2>PostgreSQL과 Neo4j 역할 분리</h2>
         <div class="db-tables">
           <article class="db-card">
@@ -819,7 +778,7 @@
       </section>
 
       <section class="slide compact" id="features">
-        <span class="eyebrow">09. Feature Summary</span>
+        <span class="eyebrow">08. Feature Summary</span>
         <h2>구현 기능 요약</h2>
         <div class="grid two">
           <article class="card">
@@ -843,13 +802,12 @@
       </section>
 
       <section class="slide compact">
-        <span class="eyebrow">10. Archive App</span>
+        <span class="eyebrow">09. Archive App</span>
         <h2>archive app: 아카이브 검색과 금기 조회</h2>
         <div class="grid two">
           <article class="card">
             <strong>사용 기술</strong>
             <ul>
-              <li>Django Template으로 기록 열람실과 금기 자료실 화면 구성</li>
               <li>Django ORM으로 `horror_stories`, `myth_entities`, `superstitions` 조회</li>
               <li>fetch 기반 내부 JSON API로 검색, 상세, 오늘의 금기 데이터를 전달</li>
               <li>Session에 최근 검색 결과와 TTS 대상 본문을 저장</li>
@@ -860,7 +818,6 @@
             <ul>
               <li>키워드 기반 검색 결과를 점수화해 상위 결과를 보여줍니다.</li>
               <li>기록 열람실은 LLM 응답을 통해 기록소가 안내하는 듯한 경험을 제공합니다.</li>
-              <li>금기 자료실은 목록 영역만 내부 스크롤되도록 설계했습니다.</li>
               <li>ElevenLabs TTS와 YouTube BGM으로 낭독 경험을 확장했습니다.</li>
             </ul>
           </article>
@@ -868,7 +825,7 @@
       </section>
 
       <section class="slide compact">
-        <span class="eyebrow">11. Generator App</span>
+        <span class="eyebrow">10. Generator App</span>
         <h2>generator app: AI 괴담 생성</h2>
         <div class="flow">
           <span>7개 조건 입력</span>
@@ -892,7 +849,6 @@
             <ul>
               <li>지역, 장소, 괴이 유형, 금기, 시간, 발생 조건, 결말을 입력값으로 사용합니다.</li>
               <li>출력 형식을 JSON으로 제한해 화면 표시와 게시판 연동을 안정화했습니다.</li>
-              <li>생성 결과 영역만 내부 스크롤되도록 구성했습니다.</li>
               <li>창작담 게시 버튼으로 post app의 열린 게시판 작성 흐름과 연결했습니다.</li>
             </ul>
           </article>
@@ -900,7 +856,7 @@
       </section>
 
       <section class="slide compact">
-        <span class="eyebrow">12. Post App</span>
+        <span class="eyebrow">11. Post App</span>
         <h2>post app: 열린 게시판과 창작담 공유</h2>
         <div class="grid two">
           <article class="card">
@@ -925,7 +881,7 @@
       </section>
 
       <section class="slide compact" id="region">
-        <span class="eyebrow">13. Regions App</span>
+        <span class="eyebrow">12. Regions App</span>
         <h2>regions app: 지도와 GraphDB 관계 탐색</h2>
         <div class="grid two">
           <article class="card">
@@ -941,7 +897,7 @@
             <strong>구현 포인트</strong>
             <ul>
               <li>지도 핀 클릭으로 특정 지역의 괴담 관계를 조회합니다.</li>
-              <li>`ORIGINATED_IN`, `HAS_PLACE`, `OCCURRED_AT` 관계를 따라 탐색합니다.</li>
+              <li>neo4j의 관계를 따라 탐색합니다.</li>
               <li>조회 결과는 우측 패널의 폴더 트리 형태로 표시합니다.</li>
               <li>선택한 기록은 모달로 전체 본문을 확인합니다.</li>
             </ul>
@@ -957,7 +913,7 @@
       </section>
 
       <section class="slide compact">
-        <span class="eyebrow">14. Accounts App</span>
+        <span class="eyebrow">13. Accounts App</span>
         <h2>accounts app: 인증과 마이페이지</h2>
         <div class="grid two">
           <article class="card">
@@ -1021,12 +977,17 @@
         const currentIndex = getCurrentSlideIndex();
         const isLastSlide = currentIndex >= slides.length - 1;
         nextSlideButton.textContent = isLastSlide ? "END" : "NEXT";
-        nextSlideButton.disabled = isLastSlide;
       }
 
       nextSlideButton.addEventListener("click", () => {
-        const nextSlide = slides[getCurrentSlideIndex() + 1];
-        if (!nextSlide) return;
+        const currentIndex = getCurrentSlideIndex();
+        const nextSlide = slides[currentIndex + 1];
+
+        if (!nextSlide) {
+          window.location.href = "http://127.0.0.1:8000/";
+          return;
+        }
+
         nextSlide.scrollIntoView({ behavior: "smooth", block: "start" });
       });
 

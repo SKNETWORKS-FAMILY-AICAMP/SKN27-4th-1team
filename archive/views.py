@@ -9,16 +9,19 @@ from django.db import DatabaseError
 
 from .models import Superstition
 from .services.graph import run_archive_chatbot, run_archive_record_chatbot
+from .services.graph_nodes import convert_story_to_narration
 from .services.session_state import (
     clear_last_tts_error,
     clear_user_archive_session,
     get_archive_context,
     get_conversation_history,
     get_last_tts_error,
+    get_last_tts_narration,
     get_last_tts_text,
     save_archive_context,
     save_conversation_history,
     save_last_tts_error,
+    save_last_tts_narration,
     save_last_tts_text,
 )
 from .services.taboo import (
@@ -316,6 +319,20 @@ def sillok_rewrite_api(request):
     })
 
 
+def prepare_tts_narration(request, text: str) -> str:
+    """낭독 직전에 괴담 본문을 감정 낭독 대본으로 바꾸고 같은 본문은 세션에 캐시한다."""
+    cached_narration = get_last_tts_narration(request, text)
+    if cached_narration:
+        return cached_narration
+
+    narration = convert_story_to_narration(text)
+    if narration.strip() and narration != text:
+        save_last_tts_narration(request, text, narration)
+        return narration
+
+    return text
+
+
 def sillok_tts_api(request):
     """생성된 괴담 본문을 ElevenLabs 음성 MP3 스트림으로 반환한다."""
     if request.method == 'GET' and request.GET.get('error') == '1':
@@ -396,9 +413,11 @@ def sillok_tts_api(request):
             'message': '낭독할 괴담 본문이 없습니다.',
         }, status=400)
 
+    narration_text = prepare_tts_narration(request, text)
+
     try:
         clear_last_tts_error(request)
-        audio_response = open_story_audio_stream(text)
+        audio_response = open_story_audio_stream(narration_text)
     except ValueError as error:
         error_message = str(error)
         save_last_tts_error(request, error_message)

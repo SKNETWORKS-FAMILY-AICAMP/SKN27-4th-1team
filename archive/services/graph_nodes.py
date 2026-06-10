@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 from typing import Any, Literal, TypedDict
 
 from archive.services.archive_search import (
@@ -11,10 +12,12 @@ from archive.services.keyword_extractor import extract_keywords
 from archive.services.prompt import (
     build_evaluation_prompt,
     build_generation_prompt,
+    build_generation_retry_prompt,
     build_general_chat_prompt,
     build_intent_classification_prompt,
     build_revision_prompt,
     build_search_choice_prompt,
+    build_tts_narration_prompt,
 )
 from archive.services.search_policy import SIMPLE_GENERAL_CHAT_MESSAGES
 from common.llm_factory import get_llm, get_post_generation_llm
@@ -1331,7 +1334,21 @@ def generate_node(state: ArchiveState) -> dict[str, Any]:
     generated_story = extract_story_from_model_response(invoke_gemma_llm(prompt))
     if not generated_story.strip():
         logging.getLogger(__name__).warning(
-            "Archive generation LLM returned empty response",
+            "Archive generation LLM returned empty response; retrying with compact prompt",
+            extra=build_story_log_extra(source_story),
+        )
+        retry_prompt = build_generation_retry_prompt(
+            question=state.get("question", ""),
+            keywords=state.get("keywords", []),
+            source_story=source_story,
+        )
+        generated_story = extract_story_from_model_response(
+            invoke_gemma_llm(retry_prompt),
+        )
+
+    if not generated_story.strip():
+        logging.getLogger(__name__).warning(
+            "Archive generation LLM returned empty response after retry",
             extra=build_story_log_extra(source_story),
         )
         message = get_empty_generation_message()
@@ -1478,9 +1495,74 @@ def decide_next_node(state: ArchiveState) -> Literal["revise", "finish"]:
     return "revise"
 
 
+def convert_story_to_narration(story_text: str) -> str:
+    """생성 괴담 본문을 ElevenLabs v3 낭독 대본으로 변환한다. 실패하면 원문을 반환한다."""
+    cleaned_source = story_text.strip()
+    if not cleaned_source:
+        return story_text
+
+    try:
+        response = invoke_gemma_llm(build_tts_narration_prompt(cleaned_source))
+    except Exception:
+        logging.getLogger(__name__).exception("TTS 낭독 대본 변환 실패, 원문으로 낭독한다")
+        return story_text
+
+    narration = strip_markdown_fence(response).strip()
+    if len(narration) < max(80, len(cleaned_source) // 3):
+        logging.getLogger(__name__).warning(
+            "TTS 낭독 대본이 너무 짧아 원문으로 낭독한다",
+            extra={"narration_length": len(narration), "source_length": len(cleaned_source)},
+        )
+        return story_text
+
+    return narration
+
+
+def strip_markdown_fence(text: str) -> str:
+    """응답 앞뒤의 마크다운 코드블록 기호를 제거한다."""
+    stripped = text.strip()
+    if stripped.startswith("```"):
+        stripped = stripped.split("\n", 1)[-1]
+    if stripped.endswith("```"):
+        stripped = stripped[: stripped.rfind("```")]
+
+    return stripped.strip()
+
+
+RATE_LIMIT_RETRY_DELAY_SECONDS = 4
+
+
+def is_groq_rate_limit_error(error: Exception) -> bool:
+    """Groq 분당 호출/토큰 한도(429) 오류인지 확인한다."""
+    if getattr(error, "status_code", None) == 429:
+        return True
+
+    response = getattr(error, "response", None)
+    if getattr(response, "status_code", None) == 429:
+        return True
+
+    return error.__class__.__name__ == "RateLimitError"
+
+
+def invoke_with_rate_limit_retry(invoke_once: Any) -> Any:
+    """429 한도 오류면 잠시 대기 후 1회만 재시도한다. 다른 오류는 그대로 올린다."""
+    try:
+        return invoke_once()
+    except Exception as error:
+        if not is_groq_rate_limit_error(error):
+            raise
+
+        logging.getLogger(__name__).warning(
+            "Groq 호출 제한(429), %s초 대기 후 1회 재시도한다",
+            RATE_LIMIT_RETRY_DELAY_SECONDS,
+        )
+        time.sleep(RATE_LIMIT_RETRY_DELAY_SECONDS)
+        return invoke_once()
+
+
 def invoke_llm(prompt: str) -> str:
     """archive 기본 Groq 모델에서 프롬프트 응답 문자열을 반환한다."""
-    response = get_llm().invoke(prompt)
+    response = invoke_with_rate_limit_retry(lambda: get_llm().invoke(prompt))
     log_llm_finish_reason("Archive default LLM", response)
     if hasattr(response, "content"):
         return str(response.content).strip()
@@ -1489,8 +1571,10 @@ def invoke_llm(prompt: str) -> str:
 
 
 def invoke_gemma_llm(prompt: str) -> str:
-    """archive 일반 대화, 괴담 생성, 수정용 Gemma 모델 응답 문자열을 반환한다."""
-    response = get_post_generation_llm().invoke(prompt)
+    """archive 일반 대화, 괴담 생성, 수정용 Groq 생성 모델 응답 문자열을 반환한다."""
+    response = invoke_with_rate_limit_retry(
+        lambda: get_post_generation_llm().invoke(prompt)
+    )
     log_llm_finish_reason("Archive post-generation LLM", response)
     if hasattr(response, "content"):
         return str(response.content).strip()
