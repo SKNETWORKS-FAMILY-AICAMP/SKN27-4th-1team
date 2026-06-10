@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 from typing import Any, Literal, TypedDict
 
 from archive.services.archive_search import (
@@ -1528,9 +1529,40 @@ def strip_markdown_fence(text: str) -> str:
     return stripped.strip()
 
 
+RATE_LIMIT_RETRY_DELAY_SECONDS = 4
+
+
+def is_groq_rate_limit_error(error: Exception) -> bool:
+    """Groq 분당 호출/토큰 한도(429) 오류인지 확인한다."""
+    if getattr(error, "status_code", None) == 429:
+        return True
+
+    response = getattr(error, "response", None)
+    if getattr(response, "status_code", None) == 429:
+        return True
+
+    return error.__class__.__name__ == "RateLimitError"
+
+
+def invoke_with_rate_limit_retry(invoke_once: Any) -> Any:
+    """429 한도 오류면 잠시 대기 후 1회만 재시도한다. 다른 오류는 그대로 올린다."""
+    try:
+        return invoke_once()
+    except Exception as error:
+        if not is_groq_rate_limit_error(error):
+            raise
+
+        logging.getLogger(__name__).warning(
+            "Groq 호출 제한(429), %s초 대기 후 1회 재시도한다",
+            RATE_LIMIT_RETRY_DELAY_SECONDS,
+        )
+        time.sleep(RATE_LIMIT_RETRY_DELAY_SECONDS)
+        return invoke_once()
+
+
 def invoke_llm(prompt: str) -> str:
     """archive 기본 Groq 모델에서 프롬프트 응답 문자열을 반환한다."""
-    response = get_llm().invoke(prompt)
+    response = invoke_with_rate_limit_retry(lambda: get_llm().invoke(prompt))
     log_llm_finish_reason("Archive default LLM", response)
     if hasattr(response, "content"):
         return str(response.content).strip()
@@ -1539,8 +1571,10 @@ def invoke_llm(prompt: str) -> str:
 
 
 def invoke_gemma_llm(prompt: str) -> str:
-    """archive 일반 대화, 괴담 생성, 수정용 Gemma 모델 응답 문자열을 반환한다."""
-    response = get_post_generation_llm().invoke(prompt)
+    """archive 일반 대화, 괴담 생성, 수정용 Groq 생성 모델 응답 문자열을 반환한다."""
+    response = invoke_with_rate_limit_retry(
+        lambda: get_post_generation_llm().invoke(prompt)
+    )
     log_llm_finish_reason("Archive post-generation LLM", response)
     if hasattr(response, "content"):
         return str(response.content).strip()

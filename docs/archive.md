@@ -98,7 +98,15 @@ flowchart TD
     X --> W
     W --> Y["last_tts_text 저장"]
 
-    O --> Z["/archive/api/tts/ 스트림 재생"]
+    O --> Z["/archive/api/tts/ 호출"]
+    Z --> AA["ELEVENLABS_MODEL_ID=eleven_v3 검증"]
+    AA --> AB["last_tts_narration 캐시 확인"]
+    AB -->|캐시 있음| AC["캐시된 낭독 대본 사용"]
+    AB -->|캐시 없음| AD["convert_story_to_narration()"]
+    AD --> AE["build_tts_narration_prompt()로 TTS용 대본 재구성"]
+    AE --> AF["last_tts_narration 저장"]
+    AC --> AG["ElevenLabs v3 스트림 재생"]
+    AF --> AG
 ```
 
 `/archive/api/search/`는 검색 의도에서 괴담 본문을 바로 생성하지 않는다. 먼저 관련 기록 목록을 JSON으로 반환하고, 사용자가 특정 기록을 고른 뒤 `/archive/api/rewrite/`에서 재구성한다.
@@ -149,7 +157,16 @@ sequenceDiagram
         UI->>API: /archive/api/search/?q=읽어줘
         API-->>UI: tts_ready
         UI->>API: /archive/api/tts/
-        API->>TTS: ElevenLabs 스트림 요청
+        API->>API: ELEVENLABS_MODEL_ID=eleven_v3 검증
+        API->>API: last_tts_narration 캐시 확인
+        alt 캐시 없음
+            API->>LLM: TTS용 낭독 대본 재구성
+            LLM-->>API: 낭독 대본
+            API->>API: last_tts_narration 저장
+        else 캐시 있음
+            API->>API: 캐시된 낭독 대본 사용
+        end
+        API->>TTS: ElevenLabs v3 스트림 요청
         TTS-->>API: audio/mpeg
         API-->>UI: 음성 스트림
         UI-->>User: 낭독 재생
