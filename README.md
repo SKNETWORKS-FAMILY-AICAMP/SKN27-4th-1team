@@ -1,5 +1,3 @@
-# [괴이바]
-
 > SK Networks Family AI Camp 27기 4차 프로젝트  
 > 개발 기간: [2026-06-09 ~ 2026-06-10]
 
@@ -17,9 +15,9 @@
 10. [데이터베이스 설계 (PostgreSQL 및 pgvector)](#10-데이터베이스-설계-postgresql-및-pgvector)
 11. [GraphDB 설계](#11-graphdb-설계)
 12. [주요 애플리케이션 및 기능 구현](#12-주요-애플리케이션-및-기능-구현)
-    - [12.1. 지역 정보실 (Map UI & GraphDB 연동)](#121-지역-정보실-map-ui--graphdb-연동)
-    - [12.2. AI 괴담 생성 시나리오](#122-ai-괴담-생성-시나리오)
-    - [12.3. 기록 열람실 (챗봇) 구현 구조](#123-기록-열람실-챗봇-구현-구조)
+    - [12.1. 지역 정보실](#121-지역-정보실-map-ui--graphdb-연동)
+    - [12.2. AI 괴담 생성](#122-ai-괴담-생성-시나리오)
+    - [12.3. 기록 열람실](#123-기록-열람실-챗봇-구현-구조)
     - [12.4. 로그인 / 회원가입 및 보안](#124-로그인--회원가입-및-보안)
 13. [테스트 및 평가](#13-테스트-및-평가)
 14. [기대 효과 및 결론](#14-기대-효과-및-결론)
@@ -284,7 +282,16 @@ sequenceDiagram
         UI->>API: /archive/api/search/?q=읽어줘
         API-->>UI: tts_ready
         UI->>API: /archive/api/tts/
-        API->>TTS: ElevenLabs 스트림 요청
+        API->>API: ELEVENLABS_MODEL_ID=eleven_v3 검증
+        API->>API: last_tts_narration 캐시 확인
+        alt 캐시 없음
+            API->>LLM: TTS용 낭독 대본 재구성
+            LLM-->>API: 낭독 대본
+            API->>API: last_tts_narration 저장
+        else 캐시 있음
+            API->>API: 캐시된 낭독 대본 사용
+        end
+        API->>TTS: ElevenLabs v3 스트림 요청
         TTS-->>API: audio/mpeg
         API-->>UI: 음성 스트림
         UI-->>User: 낭독 재생
@@ -540,105 +547,179 @@ static/css, static/js, images 적용
 - URL: /accounts/login/
 - Template: templates/accounts/login.html
 - 로그인 Form 제공
-- 인증 실패 메시지 표시
-- 로그인 처리 중 문구 출력
+- 인증 ### 12.1. 로그인 / 회원가입 및 보안
 
-#### 나의 보관함
+Django 기본 Session 인증 방식을 사용합니다.  
+HTML 템플릿 기반 구조에 맞춰 DRF Token 방식 대신 Django Session으로 로그인 상태를 관리합니다.  
+`request.user`, `@login_required`, CSRF Token을 사용해 인증이 필요한 페이지와 요청을 보호합니다.
 
-<div align="center">
-  <img src="docs/img/mypage.png" width="760" />
-</div>
+### 인증 흐름
 
-- URL: /accounts/mypage/
-- Template: templates/accounts/mypage.html
-- 사용자 기본 정보 표시
-- 내가 쓴 글과 보관 기록 표시
-- 본인이 작성한 글 수정/삭제 가능
-- 회원 탈퇴 버튼과 확인창 구현
+```text
+> 회원가입 인증흐름
 
-### Static 파일 구성
+회원가입 Form POST
+        ↓
+SignupForm 검증
+        ↓
+User 생성
+        ↓
+authenticate / login
+        ↓
+Django Session 저장
+        ↓
+로그인 상태 유지
+```
 
-static/css/styles.css
+```text
+> 로그인 인증흐름
 
-- 전체 페이지 공통 스타일
-- BBS/터미널형 UI
-- 로그인/회원가입 화면 스타일
-- 게시판, 마이페이지, 금기 자료실, 신규 기록실 레이아웃
-- 내부 스크롤 영역 제어
+로그인 Form POST
+        ↓
+LoginForm 검증
+        ↓
+authenticate
+        ↓
+login(request, user)
+        ↓
+Django Session 저장
+        ↓
+로그인 상태 유지
+```
 
-static/js/flicker.js
+### 구현 기능
 
-- 화면 글리치 효과
-- 랜덤 간격으로 page-flicker 클래스 적용
-- 괴이 이미지 랜덤 위치 노출
+회원가입
 
-static/images/
+- 아이디 중복 검사
+- 비밀번호 8자 이상 검사
+- 비밀번호 확인 일치 검사
+- 회원가입 성공 시 자동 로그인
+- next 파라미터가 있으면 안전한 URL 검증 후 이동
 
-- 메인 배경 이미지
-- 지도 이미지
-- 글리치 효과 이미지
+로그인
 
-static/audio/
+- 아이디 / 비밀번호 기반 인증
+- 로그인 성공 시 Session 생성
+- 로그인 실패 시 에러 메시지 출력
+- next 파라미터 지원
+- 비로그인 사용자가 보호 페이지 접근 시 로그인 페이지로 이동
 
-- 문 열림/닫힘 효과음
-- 공포 루프 사운드
-- 글리치 효과음
+로그아웃
 
-static/fonts/
+- 현재 Session 삭제
+- 메인 페이지로 리다이렉트
 
-- DungGeunMo.ttf 픽셀 폰트
+마이페이지 보호
+
+- @login_required 사용
+- 비로그인 접근 시 /accounts/login/?next=/accounts/mypage/ 이동
+- 로그인 후 원래 목적지로 복귀
 
 ---
 
-## 10. 데이터베이스 설계 (PostgreSQL 및 pgvector)
+### 12.2. 기록 열람실 
 
-서비스 데이터의 안정적인 저장과 조회를 위해 PostgreSQL을 주 데이터베이스로 사용하며, 원본 괴담 및 외부 수집 데이터를 체계적으로 적재하고 p## 13. 테스트 및 평가
+기록 열람실 챗봇은 단순한 키워드 검색을 넘어, **LangGraph**를 활용하여 사용자의 의도(`intent`)에 따라 검색, 추천, 대화, 낭독, 생성 등 복합적인 AI 파이프라인을 동적으로 라우팅하여 제공합니다.
 
-평가는 단일 기능의 동작 여부만 보지 않고 인증/세션, 정적 레이아웃 유지, 외부 API 및 AI 연동, 최종 게시판 매핑, 그리고 **LLM 생성물의 질적 평가** 흐름을 분리해 확인했습니다.
+#### 1) 챗봇 API 및 LangGraph 처리 흐름
+입력 의도(`intent`)를 분석하여 검색(`search_node`), 추천(`recommend_node`), 대화(`general_chat_node`), 낭독(`tts_node`) 등으로 분기합니다. 기록이 선택되면 `/archive/api/rewrite/`를 통해 선택 기록 기반의 괴담을 재구성(`generate_node`)하고, 자체 평가(`evaluation_node`)를 거칩니다.
 
-### 주요 평가 기준
+```mermaid
+flowchart TD
+    A["사용자 입력"] --> B["/archive/api/search/"]
+    B --> C["세션 conversation_history 조회"]
+    C --> D["run_archive_chatbot()"]
+    D --> E["LangGraph 실행"]
+    E --> F["intent_node"]
 
-| 구분 | 평가 항목 | 통과 기준 |
-|:---|:---|:---|
-| **회원 관리/보안** | 로그인, 회원가입, 로그아웃, 탈퇴 | 정상적인 세션의 생성 및 파기, 폼 에러 노출, CSRF 보안 토큰 작동 확인 |
-| **마이페이지 연동** | 보관함(금기/괴담), 작성 글 연동 | DB 연동을 통한 사용자별 정확한 데이터 바인딩 확인 |
-| **Web UI / Effects** | 글리치 효과, 동적 스크롤, 랜덤 이미지 | 브라우저 에러 없는 정적 파일 연동 및 CSS 레이아웃 유지 연출 |
-| **통합 연동 (E2E)** | 비로그인 제어, Next 파라미터, 게시판 연동 | 페이지 간 유기적인 데이터 매핑 흐름 및 보호된 라우팅 리다이렉트 확인 |
-| **지역 데이터 로드** | 지도 핀 자동 배치, 지역 목록 API | 39개 지역 Origin/Region 노드 정상 반환 및 핀 렌더링 확인 |
-| **지역별 괴담 조회** | 핀 클릭 시 스토리 목록 출력 | Neo4j ORIGINATED_IN 기반 조회로 지역별 괴담 정상 반환 |
-| **본문 상세 조회** | 스토리 클릭 시 본문 모달 출력 | Story/Legend 노드 타입 관계없이 body 정상 반환 |
-| **지도 인터랙션** | 드래그, 줌, 리셋 조작 | 브라우저 에러 없이 Pan & Zoom 정상 동작 |
-| **예외 처리** | 없는 지역, 빈 파라미터 요청 | 에러 없이 빈 결과 또는 empty status 반환 |
+    F -->|archive_query| G["search_node"]
+    F -->|recommend_request| H["recommend_node"]
+    F -->|general_chat| I["general_chat_node"]
+    F -->|tts_request| J["tts_node"]
+    F -->|tts_stop| K["tts_stop_node"]
 
-### LLM 기반 AI 괴담 생성 자체 평가 지표 (LangGraph)
+    G --> L["공통 검색 서비스"]
+    H --> H1["추천 기준 추출"]
+    H1 --> L
+    L --> M["검색 안내 응답 + results JSON"]
+    I --> N["일반 대화 응답"]
+    J --> O["마지막 TTS 본문 존재 여부 확인"]
+    K --> P["낭독 중지 상태 반환"]
 
-챗봇에서 생성되는 괴담은 LangGraph 파이프라인 내의 `evaluation_node`를 통해 자체적으로 LLM 평가를 거치며, 기준 미달 시 자동으로 1회 재작성(`revise_node`)을 수행합니다. 평가는 4개의 필수 항목과 9개의 세부 점수로 이루어집니다.
+    M --> Q["프론트 currentSearchResults 저장"]
+    Q --> R["사용자가 번호/제목으로 기록 선택"]
+    R --> S["/archive/api/rewrite/"]
+    S --> T["run_archive_record_chatbot()"]
+    T --> U["generate_node"]
+    U --> V["evaluation_node"]
+    V -->|통과| W["최종 본문 반환"]
+    V -->|실패| X["revise_node 1회"]
+    X --> W
+    W --> Y["last_tts_text 저장"]
 
-**필수 합격 기준 (Boolean)**:
-- `keyword_passed`: 키워드가 자연스럽게 반영되었는가
-- `consistency_passed`: 원본을 베끼지 않으면서 핵심 공포 구조를 유지했는가
-- `style_passed`: 한국 인터넷 커뮤니티 1인칭 체험담처럼 자연스러운가
-- `atmosphere_passed`: 긴장감, 모순성, 재해석 가능성 등을 충분히 조성했는가
+    O --> Z["/archive/api/tts/ 호출"]
+    Z --> AA["ELEVENLABS_MODEL_ID=eleven_v3 검증"]
+    AA --> AB["last_tts_narration 캐시 확인"]
+    AB -->|캐시 있음| AC["캐시된 낭독 대본 사용"]
+    AB -->|캐시 없음| AD["convert_story_to_narration()"]
+    AD --> AE["build_tts_narration_prompt()로 TTS용 대본 재구성"]
+    AE --> AF["last_tts_narration 저장"]
+    AC --> AG["ElevenLabs v3 스트림 재생"]
+    AF --> AG
+```
 
-**9대 세부 평가 점수 (기준 미달 시 자동 패널티 부여)**:
-1. `contradiction` (설명되지 않는 이상한 사실/모순 유무)
-2. `reinterpretation` (결말 후 초반을 다시 보게 만드는가)
-3. `restraint` (귀신/감정을 직접 설명하지 않는 절제력)
-4. `realism` (실제 커뮤니티 체험담 같은 현실성)
-5. `tension_curve` (작은 이상함에서 모순까지 점진적 상승)
-6. `cliche_avoidance` (흔한 클리셰 회피)
-7. `aftertaste` (여운)
-8. `community_voice` (익명 게시글 특유의 말투)
-9. `anti_literary_style` (불필요한 문학적 묘사 배제)
+#### 2) 검색 및 추천 전략
+- **통합 검색**: 의미 기반 검색(`pgvector`), 명시적 키워드 검색(PostgreSQL), 그리고 연관 키워드 확장(Neo4j)을 결합하여 결과를 반환합니다.
+- **추천 검색**: 이전 대화, 최근 선택 기록, 생성 본문 등을 종합해 "비슷한 거 찾아줘", "그거 말고" 등 모호한 추천이나 제외 조건을 처리합니다.
 
-### 대표 테스트 시나리오
+#### 3) 생성 및 세션 연동
+- 사용자가 선택한 원본 기록의 사건과 문장을 베끼지 않고, 핵심 공포 구조만 추출해 익명 커뮤니티 게시글형 괴담을 생성합니다.
+- 서버의 세션(`conversation_history`, `archive_context`)과 프론트엔드의 `sessionStorage`를 나누어 안전하게 탐색 상태를 유지합니다.
 
-| ID | 시나리오명 | 검증 포인트 및 세부 내용 |
-|:---:|:---|:---|
-| **SIGN-01** | 정상 회원가입 및 로그인 | 규칙에 맞는 폼 입력 시 `auth_user` 생성 및 즉시 자동 로그인되어 메인 리다이렉트 |
-| **AUTH-02** | 로그인 실패 처리 | 틀린 계정 정보 입력 시 폼 에러 메시지 노출 및 세션 생성 차단 |
-| **AUTH-03** | CSRF 보안 검증 | 변조되거나 누락된 CSRF 토큰 전송 시 `403 Forbidden` 발생 및 접근 차단 |
-| **MY-02** | 보관함 데이터 매핑 | 마이페이지 접속 시 본인 저장 데이터(`horror_stories`, `superstitions` 연동) 바인딩 |
+---
+
+### 12.3. AI 괴담 생성 
+
+1. **사용자 요청**: `generator/storymaker/` 페이지에서 새로운 괴담 생성을 위한 키워드 입력 후 요청
+2. **View-Service 라우팅**: `generator.views`가 요청을 받아 `generator.services.generate_story` 호출
+3. **LLM 호출**: Service 내부에서 `common.llm_factory`를 이용해 모델 연결 후 프롬프트 기반 괴담 생성
+4. **결과 평가 (선택적)**: RAGAS를 활용하여 생성된 이야기의 일관성/연관성 등을 평가
+5. **저장 및 응답**: 생성 결과(`save_generated_story`)를 DB에 저장한 뒤, 화면에 결과를 반환하거나 열린 게시판으로 사용자를 유도
+
+---
+
+### 12.4. 지역 정보실 
+
+**지역 정보실**은 Neo4j GraphDB와 연동하여 국가 및 지역별 관련 괴이 기록(Story/Legend)의 유기적인 관계를 지도 UI 기반으로 시각적으로 탐색하는 서비스입니다.
+Django View를 거쳐 드래그 및 줌(Zoom) 기능이 지원되는 반응형 지도 화면을 렌더링하고, JavaScript `fetch()`와 Cypher Query 기반 API 비동기 조회를 통해 그래프 데이터를 실시간 가공하여 동적 스토리 목록으로 제공합니다.
+
+### 데이터 흐름
+
+`/regions/api/list/` API 호출 (초기 핀 배치 및 건수 집계)
+        ↓
+지도 핀 클릭 또는 맵 조작
+        ↓
+`/regions/api/cities/?region={지역명}` API 비동기(fetch) 요청
+        ↓
+`regions.services`에서 Neo4j `ORIGINATED_IN` 기반 조회
+        ↓
+지역별 스토리/레전드 목록 렌더링
+        ↓
+항목 클릭 시 `/regions/api/story/?id={id}` 본문 조회 및 모달 출력
+
+### 주요 기능 및 UI 인터랙션
+
+- **초기 핀 자동 배치**: 페이지 진입 시 Neo4j에서 `Region` 및 `Origin` 노드를 조회하여 지역 목록을 수집하고, 지리적 좌표 상수(`PIN_POSITIONS`) 기반으로 지도 위에 액티브 핀 버튼을 동적으로 매핑합니다.
+- **드래그 & 줌 (Pan & Zoom)**: 바닐라 자바스크립트를 활용한 포인터 이벤트(Pointer Events) 제어로 스케일(scale)과 좌표값(translate)을 변환하여 자유로운 지도 탐색이 가능합니다. 툴바 내 +, -, RESET 버튼으로 55%~220% 범위의 줌 조절을 지원합니다.
+- **지역별 스토리 목록 조회**: 핀 클릭 시 `ORIGINATED_IN` 관계를 역방향 탐색하여 해당 국가/지역에 연결된 `Story`/`Legend` 노드를 조회합니다. 본문(body)이 존재하는 항목만 필터링하여 반환하며, `Story` 노드(목격담)를 `Legend` 노드(신화/전설) 보다 우선 정렬하여 노출합니다.
+- **괴담 본문 상세 모달**: 목록 내 항목 클릭 시 `/regions/api/story/?id={id}` API를 호출하여 원본 본문을 조회합니다. `Story`/`Legend` 노드 타입 구분 없이 단일 쿼리로 처리하며, 데이터 내 불필요한 스크립트 노이즈(CSS keyframes 등)를 프론트엔드에서 감지하여 필터링하는 전처리가 적용되어 있습니다.
+
+### 구현 표준 및 아키텍처 원칙
+
+- **GraphDB 결합 구조**: 출처 기원 관계(`ORIGINATED_IN`)를 중심으로 `Origin` 노드에 연결된 `Story`/`Legend` 데이터를 조회하는 단일 Cypher 쿼리를 설계했습니다. 한국의 경우 DC인사이드 목격담 2,103건, 일본 296건, 인도 33건 등 국가별 데이터를 실시간 반환합니다.
+- **서버-클라이언트 분산 설계**: View는 요청 파싱 및 JSON 응답만 담당하고, 실제 Neo4j Cypher 트랜잭션 처리는 `regions.services` 계층으로 완전 분리하여 캡슐화를 준수했습니다.
+- **다이나믹 UX 구성**: HTML 전체 리프레시 없는 부드러운 전환을 위해 클라이언트 중심의 비동기 `fetch()` 통신과 Vanilla JS 기반 동적 DOM 제어 방식을 적용했습니다.| 마이페이지 접속 시 본인 저장 데이터(`horror_stories`, `superstitions` 연동) 바인딩 |
 | **UI-01** | 글리치 효과 구동 | 랜덤 간격 대기(`flicker.js`) 시 콘솔 에러 없이 무작위 화면 글리치 및 랜덤 괴이 이미지 팝업 연출 |
 | **UI-04** | 컴포넌트 내부 스크롤 | 신규 기록실/금기 자료실에서 리스트 출력 영역만 브라우저 스크롤과 독립적으로 구동 |
 | **REG-01** | 지역 목록 정상 로드 | 지역 정보실 접속 시 `/regions/api/list/` 호출 → 39개 지역 반환, 지도 핀 정상 배치 확인 |
@@ -720,7 +801,7 @@ graph LR
 
 ## 12. 주요 애플리케이션 및 기능 구현
 
-### 12.1. 지역 정보실 (Map UI & GraphDB 연동)
+### 12.1. 지역 정보실 
 
 **지역 정보실**은 Neo4j GraphDB와 연동하여 국가 및 지역별 관련 괴이 기록(Story/Legend)의 유기적인 관계를 지도 UI 기반으로 시각적으로 탐색하는 서비스입니다.
 Django View를 거쳐 드래그 및 줌(Zoom) 기능이 지원되는 반응형 지도 화면을 렌더링하고, JavaScript `fetch()`와 Cypher Query 기반 API 비동기 조회를 통해 그래프 데이터를 실시간 가공하여 동적 스토리 목록으로 제공합니다.
@@ -754,7 +835,7 @@ Django View를 거쳐 드래그 및 줌(Zoom) 기능이 지원되는 반응형 �
 
 ---
 
-### 12.2. AI 괴담 생성 시나리오
+### 12.2. AI 괴담 생성
 
 1. **사용자 요청**: `generator/storymaker/` 페이지에서 새로운 괴담 생성을 위한 키워드 입력 후 요청
 2. **View-Service 라우팅**: `generator.views`가 요청을 받아 `generator.services.generate_story` 호출
@@ -764,7 +845,7 @@ Django View를 거쳐 드래그 및 줌(Zoom) 기능이 지원되는 반응형 �
 
 ---
 
-### 12.3. 기록 열람실 (챗봇) 구현 구조
+### 12.3. 기록 열람실
 
 기록 열람실 챗봇은 단순한 키워드 검색을 넘어, **LangGraph**를 활용하여 사용자의 의도(`intent`)에 따라 검색, 추천, 대화, 낭독, 생성 등 복합적인 AI 파이프라인을 동적으로 라우팅하여 제공합니다.
 
@@ -968,7 +1049,11 @@ Django Session 저장
 
 ### [권환성]
 
-- [회고 내용 작성]
+이번 프로젝트에서 Web UI와 사용자 인증 기능을 구현하며 화면과 서버 기능이 긴밀하게 연결된다는 점을 배웠습니다.
+특히 팀원 간 파일 구조와 URL 규칙을 미리 통일하는 것이 원활한 협업에 중요하다고 느꼈습니다.
+로그인과 게시글 관리 기능을 통해 세션, CSRF, 작성자 권한 검증의 중요성도 이해할 수 있었습니다.
+또한 시각적인 연출뿐만 아니라 사용성과 안정성을 함께 고려하는 경험을 쌓았습니다.
+앞으로는 더욱 완성도 높은 서비스를 만들고 싶습니다.
 
 ### [김한솔]
 
@@ -976,7 +1061,7 @@ Django Session 저장
 
 ### [박송원]
 
-- [회고 내용 작성]
+이번 프로젝트에서 LLM이 생성하는 괴담이 그냥 답변에 그치지 않고, 실제 인터넷 커뮤니티 글의 생생한 실화처럼 느껴지도록 프롬프트 엔지니어링에 집중했습니다. 특히 작위적인 소설투를 배제하고 구어체를 적용하는 것과, 'Show, don\'t tell' 원칙에 따라 귀신이나 금기를 직접적으로 설명하지 않고 일상적인 행동과 심리를 통해 은연중에 공포를 유발하도록 세밀한 제약을 설계하는 과정이 가장 큰 고민이자 흥미로운 도전이었습니다. 사용자가 입력하는 단편적인 조건들만으로도 나름대로 현실감 넘치고 무서운 괴담이 자동 생성되는 파이프라인을 완성할 수 있었고, 고도화된 프롬프트 설계를 희망하게 되면서 고도화된 프롬프트 설계가 서비스 품질에 얼마나 큰 영향을 미치는지 다시 한번 깨닫는 소중한 경험이었습니다.
 
 ### [이재강]
 
