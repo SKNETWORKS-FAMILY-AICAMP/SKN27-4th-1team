@@ -479,10 +479,10 @@
           <a href="#overview">개요</a>
           <a href="#goals">목표</a>
           <a href="#concept">컨셉</a>
-          <a href="#flow">흐름</a>
           <a href="#stack">시스템</a>
           <a href="#db">DB</a>
           <a href="#features">기능</a>
+          <a href="#region">지역</a>
         </div>
       </nav>
 
@@ -578,30 +578,8 @@
         </div>
       </section>
 
-      <section class="slide compact" id="flow">
-        <span class="eyebrow">04. Service Flow</span>
-        <h2>서비스 핵심 흐름</h2>
-        <div class="flow">
-          <span>기록소 접속</span>
-          <span>괴담·금기 탐색</span>
-          <span>지역 관계 조회</span>
-          <span>AI 신규 기록 생성</span>
-          <span>공유·보관·관리</span>
-        </div>
-        <div class="grid two">
-          <article class="card">
-            <strong>탐색 중심 흐름</strong>
-            <p>사용자는 메인 화면에서 기록소에 접속한 뒤 기록 열람실, 금기 자료실, 지역 정보실을 통해 괴담과 금기 데이터를 탐색합니다.</p>
-          </article>
-          <article class="card">
-            <strong>참여 중심 흐름</strong>
-            <p>탐색한 세계관을 바탕으로 신규 기록실에서 AI 괴담을 생성하고, 열린 게시판에 공유하거나 나의 보관함에서 관리합니다.</p>
-          </article>
-        </div>
-      </section>
-
       <section class="slide compact" id="stack">
-        <span class="eyebrow">05. System Flow</span>
+        <span class="eyebrow">04. System Flow</span>
         <h2>시스템 흐름</h2>
         <div class="grid two">
           <article class="card">
@@ -634,7 +612,7 @@
       </section>
 
       <section class="slide compact" id="db">
-        <span class="eyebrow">06. Database</span>
+        <span class="eyebrow">05. Database</span>
         <h2>PostgreSQL과 Neo4j 역할 분리</h2>
         <div class="db-tables">
           <article class="db-card">
@@ -713,7 +691,7 @@
       </section>
 
       <section class="slide compact" id="features">
-        <span class="eyebrow">07. Feature Summary</span>
+        <span class="eyebrow">06. Feature Summary</span>
         <h2>구현 기능 요약</h2>
         <div class="grid two">
           <article class="card">
@@ -737,7 +715,7 @@
       </section>
 
       <section class="slide compact">
-        <span class="eyebrow">08. Archive Features</span>
+        <span class="eyebrow">07. Archive Features</span>
         <h2>기록 열람실과 금기 자료실</h2>
         <div class="grid two">
           <article class="card">
@@ -762,7 +740,7 @@
       </section>
 
       <section class="slide compact">
-        <span class="eyebrow">09. Generator & Community</span>
+        <span class="eyebrow">08. Generator & Community</span>
         <h2>생성한 괴담을 바로 공유하는 흐름</h2>
         <div class="flow">
           <span>7개 조건 입력</span>
@@ -790,6 +768,36 @@
               <li>창작담 좋아요 토글</li>
             </ul>
           </article>
+        </div>
+      </section>
+
+      <section class="slide compact" id="region">
+        <span class="eyebrow">09. Region Info</span>
+        <h2>지역 정보실: 지도에서 관계를 따라 기록 탐색</h2>
+        <div class="grid two">
+          <article class="card">
+            <strong>Map UI</strong>
+            <ul>
+              <li>지역 핀을 지도 위에 표시하고 클릭 이벤트로 지역 데이터를 조회</li>
+              <li>지도 확대, 축소, RESET, 드래그 이동 기능 구현</li>
+              <li>전체 페이지 스크롤 대신 지도와 우측 패널 내부 탐색에 집중</li>
+            </ul>
+          </article>
+          <article class="card">
+            <strong>GraphDB 조회</strong>
+            <ul>
+              <li>Neo4j에서 Region / Origin 기준으로 관련 기록 조회</li>
+              <li>Region → City → Story 또는 Region → Place → Story 관계 탐색</li>
+              <li>선택한 기록은 모달로 전체 본문을 확인</li>
+            </ul>
+          </article>
+        </div>
+        <div class="flow">
+          <span>지도 핀 선택</span>
+          <span>지역 API 호출</span>
+          <span>Neo4j 관계 조회</span>
+          <span>폴더 트리 표시</span>
+          <span>기록 본문 열람</span>
         </div>
       </section>
 
