@@ -3,6 +3,7 @@ from unittest.mock import patch
 
 from archive.services.graph_nodes import (
     apply_automatic_penalties,
+    convert_story_to_narration,
     extract_story_from_model_response,
     generate_node,
     is_evaluation_passed,
@@ -11,7 +12,9 @@ from archive.services.prompt import (
     build_generation_prompt,
     build_generation_retry_prompt,
     build_revision_prompt,
+    build_tts_narration_prompt,
 )
+from archive.services.tts import build_tts_payload, open_story_audio_stream
 
 
 class ArchivePromptAndEvaluationTests(SimpleTestCase):
@@ -155,3 +158,68 @@ class ArchivePromptAndEvaluationTests(SimpleTestCase):
 
         self.assertEqual(evaluated["score_total"], 90.0)
         self.assertTrue(is_evaluation_passed(evaluated))
+
+    def test_tts_narration_prompt_keeps_story_and_limits_audio_tags(self):
+        story = "복도에서 들은 소리\n\n근데 그때는 그냥 착각인 줄 알았어요."
+
+        prompt = build_tts_narration_prompt(story)
+
+        self.assertIn("낭독 대본", prompt)
+        self.assertIn("[whispers]", prompt)
+        self.assertIn("이야기의 내용, 사건, 순서, 결말을 바꾸지 마라.", prompt)
+        self.assertIn("대본 텍스트만 출력하라.", prompt)
+        self.assertIn(story, prompt)
+
+    def test_convert_story_to_narration_falls_back_to_original_on_bad_response(self):
+        story = "복도 괴담 본문. " * 20
+
+        with patch(
+            "archive.services.graph_nodes.invoke_gemma_llm",
+            side_effect=["", RuntimeError("LLM down")],
+        ):
+            self.assertEqual(convert_story_to_narration(story), story)
+            self.assertEqual(convert_story_to_narration(story), story)
+
+    def test_convert_story_to_narration_strips_markdown_fence(self):
+        story = "복도 괴담 본문. " * 20
+        narration_body = "[whispers] 근데 그때는... 그냥 착각인 줄 알았어요. " * 10
+
+        with patch(
+            "archive.services.graph_nodes.invoke_gemma_llm",
+            return_value=f"```\n{narration_body}\n```",
+        ):
+            narration = convert_story_to_narration(story)
+
+        self.assertEqual(narration, narration_body.strip())
+        self.assertNotIn("```", narration)
+
+    def test_tts_payload_uses_v3_compatible_voice_settings(self):
+        v3_payload = build_tts_payload("본문", "eleven_v3")
+
+        self.assertEqual(v3_payload["model_id"], "eleven_v3")
+        self.assertEqual(v3_payload["voice_settings"]["stability"], 0.0)
+        self.assertNotIn("style", v3_payload["voice_settings"])
+        self.assertNotIn("speed", v3_payload["voice_settings"])
+
+    def test_tts_payload_rejects_non_v3_model(self):
+        with self.assertRaisesMessage(
+            ValueError,
+            "ELEVENLABS_MODEL_ID는 eleven_v3로 설정해야 합니다.",
+        ):
+            build_tts_payload("본문", "eleven_multilingual_v2")
+
+    def test_tts_stream_requires_eleven_v3_model(self):
+        with patch.dict(
+            "os.environ",
+            {
+                "ELEVENLABS_API_KEY": "test-key",
+                "ELEVENLABS_VOICE_ID": "test-voice",
+                "ELEVENLABS_MODEL_ID": "eleven_multilingual_v2",
+            },
+            clear=True,
+        ):
+            with self.assertRaisesMessage(
+                ValueError,
+                "ELEVENLABS_MODEL_ID는 eleven_v3로 설정해야 합니다.",
+            ):
+                open_story_audio_stream("본문")

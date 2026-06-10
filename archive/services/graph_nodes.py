@@ -16,6 +16,7 @@ from archive.services.prompt import (
     build_intent_classification_prompt,
     build_revision_prompt,
     build_search_choice_prompt,
+    build_tts_narration_prompt,
 )
 from archive.services.search_policy import SIMPLE_GENERAL_CHAT_MESSAGES
 from common.llm_factory import get_llm, get_post_generation_llm
@@ -1491,6 +1492,40 @@ def decide_next_node(state: ArchiveState) -> Literal["revise", "finish"]:
         return "finish"
 
     return "revise"
+
+
+def convert_story_to_narration(story_text: str) -> str:
+    """생성 괴담 본문을 ElevenLabs v3 낭독 대본으로 변환한다. 실패하면 원문을 반환한다."""
+    cleaned_source = story_text.strip()
+    if not cleaned_source:
+        return story_text
+
+    try:
+        response = invoke_gemma_llm(build_tts_narration_prompt(cleaned_source))
+    except Exception:
+        logging.getLogger(__name__).exception("TTS 낭독 대본 변환 실패, 원문으로 낭독한다")
+        return story_text
+
+    narration = strip_markdown_fence(response).strip()
+    if len(narration) < max(80, len(cleaned_source) // 3):
+        logging.getLogger(__name__).warning(
+            "TTS 낭독 대본이 너무 짧아 원문으로 낭독한다",
+            extra={"narration_length": len(narration), "source_length": len(cleaned_source)},
+        )
+        return story_text
+
+    return narration
+
+
+def strip_markdown_fence(text: str) -> str:
+    """응답 앞뒤의 마크다운 코드블록 기호를 제거한다."""
+    stripped = text.strip()
+    if stripped.startswith("```"):
+        stripped = stripped.split("\n", 1)[-1]
+    if stripped.endswith("```"):
+        stripped = stripped[: stripped.rfind("```")]
+
+    return stripped.strip()
 
 
 def invoke_llm(prompt: str) -> str:
