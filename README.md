@@ -226,11 +226,11 @@ erDiagram
 
 ```mermaid
 graph TD
-    A[Origin (국가/지역)] <-- ORIGINATED_IN --- B(Story / Legend)
-    B --- POSTED_ON --> C[Source (출처)]
-    B --- HAPPENED_IN --> D[Location (장소유형)]
-    E[Region (세부지역)] --- HAS_PLACE --> F[Place (구체적 장소)]
-    F --- OCCURRED_AT --> B
+    B("Story / Legend") -->|ORIGINATED_IN| A["Origin (국가/지역)"]
+    B -->|POSTED_ON| C["Source (출처)"]
+    B -->|HAPPENED_IN| D["Location (장소유형)"]
+    E["Region (세부지역)"] -->|HAS_PLACE| F["Place (구체적 장소)"]
+    F -->|OCCURRED_AT| B
 ```
 
 ---
