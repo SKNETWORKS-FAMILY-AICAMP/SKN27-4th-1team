@@ -240,45 +240,54 @@ graph TD
 
 프로젝트의 핵심 비즈니스 로직이 구현된 4가지 주요 기능에 대한 앱별 시퀀스 다이어그램입니다.
 
-### 7.1. 기록 열람실 (RAG 챗봇)
+### 7.1. 기록 열람실 (LangGraph 챗봇)
 
-기록 열람실에서 사용자 키워드를 바탕으로 DB 유사도 검색(pgvector)을 수행하고, LLM을 통해 괴담을 재구성 및 응답하는 RAG(Retrieval-Augmented Generation) 파이프라인입니다.
+기록 열람실에서 사용자 입력 의도를 분류하고, 검색(Semantic + Keyword)과 추천, 생성, 평가, 낭독(TTS) 흐름을 분기하여 처리하는 LangGraph 기반 파이프라인입니다.
 
 ```mermaid
 sequenceDiagram
-    actor User
-    participant View as Django View (Chatbot)
-    participant Classifier as Intent Classifier (LLM)
-    participant VectorDB as PostgreSQL (pgvector)
-    participant LLM as LLM Engine (Groq/Ollama)
-    participant Eval as RAGAS Evaluator
-    participant TTS as ElevenLabs TTS
+    participant User as 사용자
+    participant UI as chatbot.html
+    participant API as Archive API
+    participant Graph as LangGraph
+    participant Search as 검색 서비스
+    participant LLM as LLM
+    participant TTS as TTS
 
-    User->>View: 1. 키워드/질문 입력
-    View->>Classifier: 2. 사용자 의도 분석 (괴담조회/일반대화 등)
-    Classifier-->>View: 의도 반환 (괴담조회)
-    
-    View->>VectorDB: 3. 키워드 임베딩 변환 및 유사도 검색 (Cosine Distance)
-    VectorDB-->>View: 4. 가장 유사한 기록(Chunk) 반환
-    
-    View->>LLM: 5. 원본 기록 + 프롬프트 전달 (생성 요청)
-    LLM-->>View: 6. 괴담 초안 생성
-    
-    View->>Eval: 7. 초안 평가 요청 (일관성, 분위기 등)
-    Eval-->>View: 8. 평가 결과 및 피드백 반환
-    
-    opt 수정 필요 시
-        View->>LLM: 9. 피드백 반영 재구성 요청
-        LLM-->>View: 수정된 괴담 반환
+    User->>UI: 괴담 소재 또는 검색어 입력
+    UI->>API: /archive/api/search/?q=...
+    API->>Graph: run_archive_chatbot()
+    Graph->>LLM: archive_query/recommend_request 분류
+    Graph->>Search: semantic + keyword 검색
+    Search-->>Graph: 후보 기록 목록
+    Graph->>LLM: 검색 결과 안내 문장 생성
+    Graph-->>API: results + llm_response
+    API-->>UI: JSON 응답
+    UI-->>User: 검색 안내 + 후보 목록 표시
+
+    User->>UI: 번호 또는 제목으로 기록 선택
+    UI->>API: /archive/api/rewrite/?type=...&id=...
+    API->>Graph: run_archive_record_chatbot()
+    Graph->>LLM: 선택 기록의 공포 구조 기반 괴담 생성
+    Graph->>LLM: 생성 결과 평가
+    opt 사전 검수 또는 평가 실패
+        Graph->>LLM: 1회 재작성
+        Graph->>LLM: 재작성 결과 평가
     end
-    
-    View-->>User: 10. 최종 텍스트 응답 출력
-    
-    opt 낭독 요청 시
-        User->>View: "읽어줘"
-        View->>TTS: 텍스트 전달
-        TTS-->>View: 오디오 스트림 반환
-        View-->>User: BGM + TTS 음성 재생
+    Graph-->>API: 최종 괴담 본문 + evaluation
+    API->>API: conversation_history, archive_context, last_tts_text 저장
+    API-->>UI: JSON 응답
+    UI-->>User: 재구성 괴담 표시
+
+    opt 사용자가 낭독 요청
+        User->>UI: 읽어줘
+        UI->>API: /archive/api/search/?q=읽어줘
+        API-->>UI: tts_ready
+        UI->>API: /archive/api/tts/
+        API->>TTS: ElevenLabs 스트림 요청
+        TTS-->>API: audio/mpeg
+        API-->>UI: 음성 스트림
+        UI-->>User: 낭독 재생
     end
 ```
 
@@ -426,82 +435,11 @@ sequenceDiagram
     Browser-->>User: 화면 갱신
 ```
 
-### 7.6. 데이터 적재 파이프라인 (JSON to PostgreSQL)
+### ## 10. 데이터베이스 설계 (PostgreSQL 및 pgvector)
 
-원본 JSON 파일들을 필터링하고 카테고리를 변환하여 서비스용 관계형 DB(PostgreSQL)에 일괄 적재하는 파이프라인입니다.
+서비스 데이터의 안정적인 저장과 조회를 위해 PostgreSQL을 주 데이터베이스로 사용하며, 원본 괴담 및 외부 수집 데이터를 체계적으로 적재하고 pgvector를 활용하여 관리합니다.
 
-```mermaid
-sequenceDiagram
-    actor Dev as 개발자
-    participant JSON as database/data JSON
-    participant Import as import_json_data.py
-    participant ORM as Django ORM
-    participant DB as PostgreSQL
-
-    Dev->>Import: import 스크립트 실행
-    Import->>JSON: JSON 4개 읽기
-    Import->>Import: 필드 매핑과 category 변환
-    Import->>Import: source_ref_id 해시 생성
-    Import->>ORM: update_or_create 호출
-    ORM->>DB: 테이블별 insert/update
-    DB-->>Dev: 적재 결과 확인
-```
-
-### 7.7. pgvector 임베딩 파이프라인
-
-적재된 원본 기록을 의미 기반(Semantic Search)으로 검색하기 위해 문장 단위로 청킹 후 벡터 데이터베이스(pgvector)에 임베딩하는 흐름입니다.
-
-```mermaid
-sequenceDiagram
-    actor Dev as 개발자
-    participant Embed as embed_records.py
-    participant DB as PostgreSQL
-    participant Chunker as semantic_chunker.py
-    participant Model as multilingual-e5-base
-    participant Vector as record_embeddings
-
-    Dev->>Embed: 임베딩 스크립트 실행
-    Embed->>DB: 원본 테이블 조회
-    DB-->>Embed: horror_stories, myth_entities, dcinside_posts 반환
-    Embed->>Chunker: 본문을 문장/문단 기준으로 청킹
-    Chunker-->>Embed: chunk 목록 반환
-    Embed->>Model: passage prefix로 임베딩 생성
-    Model-->>Embed: 768차원 벡터 반환
-    Embed->>Vector: source_table, source_id, chunk_index 기준 upsert
-```
-
----
-
-## 8. 시스템 아키텍처
-
-### 프로젝트 구조
-
-```text
-SKN27-4th-1team/
-├─ config/              # Django 프로젝트 핵심 설정 및 URLConf
-├─ common/              # 여러 app에서 공유하는 LLM 및 Logging 모듈
-├─ accounts/            # 회원가입, 로그인, 로그아웃, 마이페이지 처리 앱
-├─ archive/             # 메인페이지, 괴담 검색, 금기 조회 처리 앱
-├─ generator/           # AI 괴담 생성 폼 및 RAG/LLM 연동 앱
-├─ post/                # 열린 게시판 (목록, 상세, 등록, 수정, 삭제) 앱
-├─ regions/             # 지역 정보실 (Neo4j 연동 지역 괴담 조회) 앱
-├─ static/              # 전체 공통 정적 파일 (css, js, images, audio, fonts)
-├─ templates/           # 앱별 화면 템플릿 (index, chatbot, archive, community 등)
-├─ database/            # 초기 데이터 스크립트 등
-└─ docker-compose.yaml  # 로컬 DB(PostgreSQL, Neo4j) 컨테이너 설정
-```
-
-### 아키텍처 특징 (View-Service 분리)
-
-- **View (`views.py`)**: 사용자 요청 수신, 폼 검증, 권한 확인, 렌더링/리다이렉트 등 HTTP 흐름만 제어합니다.
-- **Service (`services.py`)**: 실제 비즈니스 로직(DB 쿼리, 모델 저장/수정/삭제, LLM API 호출, Neo4j 연동 등)은 각 앱의 `services.py`로 분리하여 앱 간 결합도를 낮추고 재사용성을 높였습니다.
-
----
-
-## 9. 웹페이지 구현
-
-Django Template 기반으로 화면을 구성했습니다.  
-각 페이지는 `templates/` 폴더에 배치하고, 공통 스타일과 인터랙션은 `static/css/styles.css`, `static/js/flicker.js`에서 관리합니다.  
+---�은 `static/css/styles.css`, `static/js/flicker.js`에서 관리합니다.  
 HTML 파일을 직접 여는 방식이 아니라 Django URLConf와 View를 통해 페이지를 렌더링합니다.
 
 ### 화면 연결 구조
@@ -654,29 +592,65 @@ static/fonts/
 
 ## 10. 데이터베이스 설계 (PostgreSQL 및 pgvector)
 
-서비스 데이터의 안정적인 저장과 조회를 위해 PostgreSQL을 주 데이터베이스로 사용하며, 원본 괴담 및 외부 수집 데이터를 체계적으로 적재하고 pgvector 확장 기능으로 의미 기반 검색(Semantic Search)을 지원합니다.
+서비스 데이터의 안정적인 저장과 조회를 위해 PostgreSQL을 주 데이터베이스로 사용하며, 원본 괴담 및 외부 수집 데이터를 체계적으로 적재하고 p## 13. 테스트 및 평가
 
-### 주요 데이터 구조
+평가는 단일 기능의 동작 여부만 보지 않고 인증/세션, 정적 레이아웃 유지, 외부 API 및 AI 연동, 최종 게시판 매핑, 그리고 **LLM 생성물의 질적 평가** 흐름을 분리해 확인했습니다.
 
-| 테이블                    | 데이터 종류             | 역할                                            |
-| ------------------------- | ----------------------- | ----------------------------------------------- |
-| `horror_stories`          | 검증 한국 괴담/도시전설 | 괴담 아카이브 원본 데이터                       |
-| `myth_entities`           | 세계 괴이/신화 존재     | 신화 및 요괴 원본 데이터                        |
-| `superstitions`           | 미신 및 금기 문장       | 금기 자료실 정보 제공                           |
-| `dcinside_posts`          | 외부 수집 공포 썰       | 유저 작성글과 분리된 외부 검색용 데이터         |
-| `post_post` / `post_like` | 열린 게시판 데이터      | 실제 사용자가 작성한 목격담/창작담 및 추천 관리 |
-| `record_embeddings`       | pgvector 임베딩 청크    | 의미 기반 검색용 768차원 임베딩 데이터          |
+### 주요 평가 기준
 
-### 외부 수집 데이터 전처리 및 적재
+| 구분 | 평가 항목 | 통과 기준 |
+|:---|:---|:---|
+| **회원 관리/보안** | 로그인, 회원가입, 로그아웃, 탈퇴 | 정상적인 세션의 생성 및 파기, 폼 에러 노출, CSRF 보안 토큰 작동 확인 |
+| **마이페이지 연동** | 보관함(금기/괴담), 작성 글 연동 | DB 연동을 통한 사용자별 정확한 데이터 바인딩 확인 |
+| **Web UI / Effects** | 글리치 효과, 동적 스크롤, 랜덤 이미지 | 브라우저 에러 없는 정적 파일 연동 및 CSS 레이아웃 유지 연출 |
+| **통합 연동 (E2E)** | 비로그인 제어, Next 파라미터, 게시판 연동 | 페이지 간 유기적인 데이터 매핑 흐름 및 보호된 라우팅 리다이렉트 확인 |
+| **지역 데이터 로드** | 지도 핀 자동 배치, 지역 목록 API | 39개 지역 Origin/Region 노드 정상 반환 및 핀 렌더링 확인 |
+| **지역별 괴담 조회** | 핀 클릭 시 스토리 목록 출력 | Neo4j ORIGINATED_IN 기반 조회로 지역별 괴담 정상 반환 |
+| **본문 상세 조회** | 스토리 클릭 시 본문 모달 출력 | Story/Legend 노드 타입 관계없이 body 정상 반환 |
+| **지도 인터랙션** | 드래그, 줌, 리셋 조작 | 브라우저 에러 없이 Pan & Zoom 정상 동작 |
+| **예외 처리** | 없는 지역, 빈 파라미터 요청 | 에러 없이 빈 결과 또는 empty status 반환 |
 
-- DCInside 수집글(`dcinside_posts`)은 원본의 제목(태그)에 따라 `CREATION`(창작), `WITNESS`(경험/사건) 등으로 카테고리를 분류하여 적재합니다.
-- 외부 수집 데이터와 실제 사용자가 작성한 커뮤니티 게시글(`post_post`)의 DB 테이블을 엄격하게 분리하여 무결성과 유지보수성을 높였습니다.
+### LLM 기반 AI 괴담 생성 자체 평가 지표 (LangGraph)
 
-### pgvector 기반 의미 검색 파이프라인
+챗봇에서 생성되는 괴담은 LangGraph 파이프라인 내의 `evaluation_node`를 통해 자체적으로 LLM 평가를 거치며, 기준 미달 시 자동으로 1회 재작성(`revise_node`)을 수행합니다. 평가는 4개의 필수 항목과 9개의 세부 점수로 이루어집니다.
 
-- `intfloat/multilingual-e5-base` 모델을 사용하여 각 테이블 본문을 문장/문단 단위로 청킹(Chunking)한 뒤 768차원의 벡터로 임베딩합니다.
-- 생성된 임베딩 데이터는 `record_embeddings`라는 독립된 테이블에 저장되며, 검색 시 코사인 거리(Cosine Distance)를 계산하여 가장 유사한 `horror_stories`, `myth_entities`, `dcinside_posts` 기록을 반환합니다.
-- 데이터 갱신이 잦은 사용자 게시글(`post_post`)이나 문장이 짧은 미신(`superstitions`)은 임베딩 대상에서 의도적으로 제외하여 시스템 리소스 효율을 최적화했습니다.
+**필수 합격 기준 (Boolean)**:
+- `keyword_passed`: 키워드가 자연스럽게 반영되었는가
+- `consistency_passed`: 원본을 베끼지 않으면서 핵심 공포 구조를 유지했는가
+- `style_passed`: 한국 인터넷 커뮤니티 1인칭 체험담처럼 자연스러운가
+- `atmosphere_passed`: 긴장감, 모순성, 재해석 가능성 등을 충분히 조성했는가
+
+**9대 세부 평가 점수 (기준 미달 시 자동 패널티 부여)**:
+1. `contradiction` (설명되지 않는 이상한 사실/모순 유무)
+2. `reinterpretation` (결말 후 초반을 다시 보게 만드는가)
+3. `restraint` (귀신/감정을 직접 설명하지 않는 절제력)
+4. `realism` (실제 커뮤니티 체험담 같은 현실성)
+5. `tension_curve` (작은 이상함에서 모순까지 점진적 상승)
+6. `cliche_avoidance` (흔한 클리셰 회피)
+7. `aftertaste` (여운)
+8. `community_voice` (익명 게시글 특유의 말투)
+9. `anti_literary_style` (불필요한 문학적 묘사 배제)
+
+### 대표 테스트 시나리오
+
+| ID | 시나리오명 | 검증 포인트 및 세부 내용 |
+|:---:|:---|:---|
+| **SIGN-01** | 정상 회원가입 및 로그인 | 규칙에 맞는 폼 입력 시 `auth_user` 생성 및 즉시 자동 로그인되어 메인 리다이렉트 |
+| **AUTH-02** | 로그인 실패 처리 | 틀린 계정 정보 입력 시 폼 에러 메시지 노출 및 세션 생성 차단 |
+| **AUTH-03** | CSRF 보안 검증 | 변조되거나 누락된 CSRF 토큰 전송 시 `403 Forbidden` 발생 및 접근 차단 |
+| **MY-02** | 보관함 데이터 매핑 | 마이페이지 접속 시 본인 저장 데이터(`horror_stories`, `superstitions` 연동) 바인딩 |
+| **UI-01** | 글리치 효과 구동 | 랜덤 간격 대기(`flicker.js`) 시 콘솔 에러 없이 무작위 화면 글리치 및 랜덤 괴이 이미지 팝업 연출 |
+| **UI-04** | 컴포넌트 내부 스크롤 | 신규 기록실/금기 자료실에서 리스트 출력 영역만 브라우저 스크롤과 독립적으로 구동 |
+| **REG-01** | 지역 목록 정상 로드 | 지역 정보실 접속 시 `/regions/api/list/` 호출 → 39개 지역 반환, 지도 핀 정상 배치 확인 |
+| **REG-02** | 한국 핀 클릭 → 목격담 목록 | 한국 핀 클릭 → 공포 목격담 2,000건 이상 표시, 첫 항목 `type=Story` 확인 |
+| **REG-03** | 일본 핀 클릭 → 전설/요괴 목록 | 일본 핀 클릭 → 일본 신화/요괴 `Legend` 노드 296건 표시 확인 |
+| **REG-04** | 인도/태국 등 소규모 지역 조회 | 인도 33건, 태국 3건 정상 반환, 본문 없는 항목 미노출 확인 |
+| **REG-05** | 스토리 본문 모달 조회 | 목록 내 항목 클릭 → 모달 팝업 후 본문 텍스트 정상 출력, `Story`/`Legend` 타입 모두 확인 |
+| **REG-06** | 지도 드래그 & 줌 인터랙션 | +/- 버튼 클릭 시 55%~220% 범위 줌 동작, 드래그로 지도 이동, RESET으로 초기 상태 복귀 확인 |
+| **REG-07** | 없는 지역 조회 (경계값) | `region=남극` 등 데이터 없는 지역 요청 → 에러 없이 빈 목록 반환 확인 |
+| **REG-08** | 빈 파라미터 요청 | `region` 파라미터 없이 API 호출 → `{"status": "empty"}` 반환 확인 |
+| **AI-01** | LLM 자체 평가/재작성 | LangGraph 생성 후 자체 평가(`evaluation_node`) 점수 미달 시 1회 `revise` 노드 실행 및 결과물 확인 |
+| **AI-02** | TTS 스트리밍 연동 중지 | ElevenLabs 스트리밍 재생 중 "멈춰/중지" 입력 시 프론트 BGM 및 음성 즉시 정지 확인 |�상에서 의도적으로 제외하여 시스템 리소스 효율을 최적화했습니다.
 
 ---
 
@@ -792,17 +766,54 @@ Django View를 거쳐 드래그 및 줌(Zoom) 기능이 지원되는 반응형 �
 
 ### 12.3. 기록 열람실 (챗봇) 구현 구조
 
-기록 열람실 챗봇은 단순한 키워드 검색을 넘어, 사용자의 의도를 분석하고 생성형 AI를 활용하여 몰입감 있는 대화형 검색을 제공합니다.
+기록 열람실 챗봇은 단순한 키워드 검색을 넘어, **LangGraph**를 활용하여 사용자의 의도(`intent`)에 따라 검색, 추천, 대화, 낭독, 생성 등 복합적인 AI 파이프라인을 동적으로 라우팅하여 제공합니다.
 
-### 전체 대화 흐름
+#### 1) 챗봇 API 및 LangGraph 처리 흐름
+입력 의도(`intent`)를 분석하여 검색(`search_node`), 추천(`recommend_node`), 대화(`general_chat_node`), 낭독(`tts_node`) 등으로 분기합니다. 기록이 선택되면 `/archive/api/rewrite/`를 통해 선택 기록 기반의 괴담을 재구성(`generate_node`)하고, 자체 평가(`evaluation_node`)를 거칩니다.
 
-1. **의도 분류**: 사용자의 입력을 받아 `괴담 조회`, `일반 대화`, `낭독(TTS) 요청` 세 가지 의도 중 하나로 분류합니다.
-2. **DB 검색 및 선택**: `괴담 조회` 의도로 판별 시, PostgreSQL DB(`HorrorStory`, `MythEntity`, `Superstition`)에서 관련 기록을 검색하고 LLM을 통해 스산한 선택 유도문을 생성하여 반환합니다.
-3. **괴담 재구성 및 평가**: 사용자가 목록에서 기록을 선택하면, 원본 기록을 바탕으로 LLM 파이프라인(생성 → 평가 → 1회 수정)을 거쳐 괴담을 재구성합니다. 평가는 키워드, 일관성, 문체, 분위기를 기준으로 진행됩니다.
-4. **TTS (음성 낭독) 연동**: 재구성 완료된 괴담 텍스트는 세션에 저장되며, 사용자가 `읽어줘` 등의 명령을 내리면 ElevenLabs 스트리밍 API를 통해 낭독 오디오를 출력합니다. 동시에 YouTube IFrame API를 활용해 공포스러운 루프 사운드(BGM)를 재생하여 몰입감을 극대화합니다.
-5. **세션 기반 상태 관리**: `session_state.py`를 통해 로그인 사용자와 익명 사용자의 대화 기록(History)과 마지막 생성 텍스트 상태를 분리하여 세션에 안전하게 관리합니다.
+```mermaid
+flowchart TD
+    A["사용자 입력"] --> B["/archive/api/search/"]
+    B --> C["세션 conversation_history 조회"]
+    C --> D["run_archive_chatbot()"]
+    D --> E["LangGraph 실행"]
+    E --> F["intent_node"]
 
----
+    F -->|archive_query| G["search_node"]
+    F -->|recommend_request| H["recommend_node"]
+    F -->|general_chat| I["general_chat_node"]
+    F -->|tts_request| J["tts_node"]
+    F -->|tts_stop| K["tts_stop_node"]
+
+    G --> L["공통 검색 서비스"]
+    H --> H1["추천 기준 추출"]
+    H1 --> L
+    L --> M["검색 안내 응답 + results JSON"]
+    I --> N["일반 대화 응답"]
+    J --> O["마지막 TTS 본문 존재 여부 확인"]
+    K --> P["낭독 중지 상태 반환"]
+
+    M --> Q["프론트 currentSearchResults 저장"]
+    Q --> R["사용자가 번호/제목으로 기록 선택"]
+    R --> S["/archive/api/rewrite/"]
+    S --> T["run_archive_record_chatbot()"]
+    T --> U["generate_node"]
+    U --> V["evaluation_node"]
+    V -->|통과| W["최종 본문 반환"]
+    V -->|실패| X["revise_node 1회"]
+    X --> W
+    W --> Y["last_tts_text 저장"]
+
+    O --> Z["/archive/api/tts/ 스트림 재생"]
+```
+
+#### 2) 검색 및 추천 전략
+- **통합 검색**: 의미 기반 검색(`pgvector`), 명시적 키워드 검색(PostgreSQL), 그리고 연관 키워드 확장(Neo4j)을 결합하여 결과를 반환합니다.
+- **추천 검색**: 이전 대화, 최근 선택 기록, 생성 본문 등을 종합해 "비슷한 거 찾아줘", "그거 말고" 등 모호한 추천이나 제외 조건을 처리합니다.
+
+#### 3) 생성 및 세션 연동
+- 사용자가 선택한 원본 기록의 사건과 문장을 베끼지 않고, 핵심 공포 구조만 추출해 익명 커뮤니티 게시글형 괴담을 생성합니다.
+- 서버의 세션(`conversation_history`, `archive_context`)과 프론트엔드의 `sessionStorage`를 나누어 안전하게 탐색 상태를 유지합니다.
 
 ### 12.4. 로그인 / 회원가입 및 보안
 
