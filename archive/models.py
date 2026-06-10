@@ -1,10 +1,10 @@
-from django.db import models
+﻿from django.db import models
 
 
 class HorrorStory(models.Model):
     """검증된 한국 괴담/도시전설 원천 데이터를 저장한다."""
 
-    # source + source_ref_id 조합으로 JSON 재적재 시 중복 저장을 막는다.
+    #  source + source_ref_id 조합으로 JSON 재적재 시 중복 저장을 막는다.
     source = models.CharField(max_length=100)
     source_ref_id = models.CharField(max_length=100)
     title = models.TextField()
@@ -37,7 +37,7 @@ class HorrorStory(models.Model):
 class MythEntity(models.Model):
     """신화/전설/괴이 존재 데이터를 저장한다."""
 
-    # 같은 원본 id라도 데이터셋이 달라질 수 있어 source를 함께 저장한다.
+    #  같은 원본 id라도 데이터셋이 달라질 수 있어 source를 함께 저장한다.
     source = models.CharField(
         max_length=100,
         default="ultimate_global_mythology_1000",
@@ -99,8 +99,7 @@ class DcinsidePost(models.Model):
     """DCInside 공포 게시판에서 수집한 외부 게시글을 저장한다.
 
     사용자가 직접 작성하는 열린 게시판 글은 post.Post가 담당한다.
-    이 모델은 외부 수집 데이터를 분리해서 보관하고, 필요하면 pgvector 검색 대상으로도 사용한다.
-    """
+    이 모델은 외부 수집 데이터를 분리해서 보관하고, 필요하면 pgvector 검색 대상으로도 사용한다."""
 
     CATEGORY_CHOICES = [
         ("WITNESS", "목격담"),
@@ -115,11 +114,14 @@ class DcinsidePost(models.Model):
     # DCInside 원본 title은 [경험], [창작] 같은 태그인 경우가 많다.
     # import 단계에서 태그를 category로 변환하고, 화면용 title은 본문 앞부분으로 만든다.
     category = models.CharField(max_length=15, choices=CATEGORY_CHOICES)
-    title = models.CharField(max_length=200)
-    region = models.CharField(max_length=100, default="한국")
+    region = models.CharField(max_length=100, default="?쒓뎅")
     content = models.TextField()
 
     # 원본 title 태그처럼 컬럼으로 고정하지 않을 보조 정보를 보관한다.
+    # 전처리 단계에서 뽑은 키워드 목록을 JSON 배열 형태로 저장한다.
+    # 별도 키워드 테이블을 만들지 않고 DBeaver에서 바로 확인하기 위한 컬럼이다.
+    keywords = models.JSONField(default=list, blank=True)
+
     metadata = models.JSONField(default=dict, blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -134,4 +136,4 @@ class DcinsidePost(models.Model):
         ]
 
     def __str__(self):
-        return f"[{self.get_category_display()}] {self.title}"
+        return f"[{self.get_category_display()}] {self.content[:30]}"

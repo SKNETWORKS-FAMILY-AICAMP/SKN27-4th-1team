@@ -63,6 +63,15 @@ THERING_RULES = (
     "repeated_newlines",
 )
 
+DCINSIDE_RULES = (
+    "markdown_links",
+    "urls",
+    "citation_numbers",
+    "html_tags",
+    "extra_whitespace",
+    "repeated_newlines",
+)
+
 MYTHOLOGY_RULES = (
     "urls",
     "citation_numbers",
@@ -172,6 +181,11 @@ def normalize_spacing(text: str) -> str:
 def clean_thering_text(text: object) -> CleaningResult:
     """thering 데이터의 괴담 본문에 맞춘 정리 규칙을 적용한다."""
     return clean_text(text, THERING_RULES)
+
+
+def clean_dcinside_text(text: object) -> CleaningResult:
+    """DCInside 수집 글의 본문에 맞춘 정리 규칙을 적용한다."""
+    return clean_text(text, DCINSIDE_RULES)
 
 
 def clean_mythology_text(text: object) -> CleaningResult:

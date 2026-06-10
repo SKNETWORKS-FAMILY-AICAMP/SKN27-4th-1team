@@ -2,24 +2,21 @@ from typing import Any
 
 
 CONVERSATION_HISTORY_PREFIX = "archive_conversation_history"
+ARCHIVE_CONTEXT_PREFIX = "archive_context"
 LAST_TTS_TEXT_PREFIX = "archive_last_tts_text"
 LAST_TTS_ERROR_PREFIX = "archive_last_tts_error"
 ANONYMOUS_SESSION_SUFFIX = "anonymous"
 
 
-def get_archive_session_suffix(user: Any) -> str:
-    """로그인 사용자와 익명 사용자를 구분하는 archive 세션 키 suffix를 만든다."""
-    if getattr(user, "is_authenticated", False):
-        return f"user_{user.id}"
-
-    return ANONYMOUS_SESSION_SUFFIX
-
-
 def get_archive_session_keys(user: Any) -> dict[str, str]:
     """archive 챗봇 대화 기록과 검색 결과용 세션 키를 반환한다."""
-    suffix = get_archive_session_suffix(user)
+    suffix = ANONYMOUS_SESSION_SUFFIX
+    if getattr(user, "is_authenticated", False):
+        suffix = f"user_{user.id}"
+
     return {
         "conversation_history": f"{CONVERSATION_HISTORY_PREFIX}_{suffix}",
+        "archive_context": f"{ARCHIVE_CONTEXT_PREFIX}_{suffix}",
         "last_tts_text": f"{LAST_TTS_TEXT_PREFIX}_{suffix}",
         "last_tts_error": f"{LAST_TTS_ERROR_PREFIX}_{suffix}",
     }
@@ -39,6 +36,23 @@ def save_conversation_history(
     """현재 요청 사용자에 해당하는 archive 챗봇 대화 기록을 제한 개수만큼 저장한다."""
     keys = get_archive_session_keys(request.user)
     request.session[keys["conversation_history"]] = conversation_history[-limit:]
+    request.session.modified = True
+
+
+def get_archive_context(request: Any) -> dict[str, Any]:
+    """최근 검색/선택 맥락을 읽는다."""
+    keys = get_archive_session_keys(request.user)
+    context = request.session.get(keys["archive_context"], {})
+    if isinstance(context, dict):
+        return context
+
+    return {}
+
+
+def save_archive_context(request: Any, archive_context: dict[str, Any]) -> None:
+    """최근 검색/선택 맥락을 저장한다."""
+    keys = get_archive_session_keys(request.user)
+    request.session[keys["archive_context"]] = archive_context
     request.session.modified = True
 
 
@@ -79,6 +93,7 @@ def clear_user_archive_session(request: Any, user: Any) -> None:
     """로그아웃한 사용자에게 연결된 archive 세션 기록만 제거한다."""
     keys = get_archive_session_keys(user)
     request.session.pop(keys["conversation_history"], None)
+    request.session.pop(keys["archive_context"], None)
     request.session.pop(keys["last_tts_text"], None)
     request.session.pop(keys["last_tts_error"], None)
     request.session.modified = True
