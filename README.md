@@ -11,7 +11,7 @@
 4. [요구사항 정의서](#4-요구사항-정의서)
 5. [화면설계서](#5-화면설계서)
 6. [ERD](#6-erd)
-7. [RAG 시퀀스 다이어그램](#7-rag-시퀀스-다이어그램)
+7. [주요 기능 시퀀스 다이어그램](#7-주요-기능-시퀀스-다이어그램)
 8. [시스템 아키텍처](#8-시스템-아키텍처)
 9. [웹페이지 구현](#9-웹페이지-구현)
 10. [데이터베이스 설계 (PostgreSQL 및 pgvector)](#10-데이터베이스-설계-postgresql-및-pgvector)
@@ -235,7 +235,11 @@ graph TD
 
 ---
 
-## 7. RAG 시퀀스 다이어그램
+## 7. 주요 기능 시퀀스 다이어그램
+
+프로젝트의 핵심 비즈니스 로직이 구현된 4가지 주요 기능에 대한 앱별 시퀀스 다이어그램입니다.
+
+### 7.1. 기록 열람실 (RAG 챗봇)
 
 기록 열람실에서 사용자 키워드를 바탕으로 DB 유사도 검색(pgvector)을 수행하고, LLM을 통해 괴담을 재구성 및 응답하는 RAG(Retrieval-Augmented Generation) 파이프라인입니다.
 
@@ -275,6 +279,194 @@ sequenceDiagram
         TTS-->>View: 오디오 스트림 반환
         View-->>User: BGM + TTS 음성 재생
     end
+```
+
+### 7.2. 지역 정보실 (Map UI & GraphDB 연동)
+
+Neo4j GraphDB와 연동하여 지도 위에서 특정 지역의 괴담 및 장소 목록을 동적으로 렌더링하고 본문을 조회하는 흐름입니다.
+
+```mermaid
+sequenceDiagram
+    actor User as 사용자
+    participant Browser as 브라우저 (JS)
+    participant View as regions/views.py
+    participant Service as regions/services.py
+    participant Neo4j as Neo4j GraphDB
+
+    %% 1. 페이지 진입 및 핀 로드
+    User->>Browser: 지역 정보실 접속
+    Browser->>View: GET /regions/regioninfo/
+    View-->>Browser: regioninfo.html 렌더링
+
+    Browser->>View: GET /regions/api/list/
+    View->>Service: get_region_list()
+    Service->>Neo4j: MATCH (r:Region) UNION MATCH (o:Origin)
+    Neo4j-->>Service: 지역 목록 반환
+    Service-->>View: regions []
+    View-->>Browser: JSON 응답
+    Browser->>Browser: 지도 위 핀 동적 생성
+
+    %% 2. 핀 클릭 → 스토리 목록
+    User->>Browser: 핀 클릭 (예: 한국)
+    Browser->>View: GET /regions/api/cities/?region=한국
+    View->>Service: get_cities_by_region("한국")
+    Service->>Neo4j: MATCH (r:Region)-[:HAS_CITY]->(c:City)
+    
+    alt City 노드 없음
+        Neo4j-->>Service: 결과 없음
+        Service-->>View: cities=[]
+        View->>Service: query_region_relations("한국")
+        Service->>Neo4j: MATCH (c)-[:ORIGINATED_IN]->(o:Origin {name:"한국"})
+        Neo4j-->>Service: Story/Legend 목록
+        Service-->>View: places with stories
+        View-->>Browser: JSON {stories: [...]}
+        Browser->>Browser: 스토리 목록 렌더링
+    else City 노드 있음
+        Neo4j-->>Service: City 노드 반환
+        Service-->>View: cities=[...]
+        View-->>Browser: JSON {cities: [...]}
+        Browser->>Browser: 폴더 트리 렌더링
+    end
+
+    %% 3. 스토리 클릭 → 본문 조회
+    User->>Browser: 스토리 클릭
+    Browser->>View: GET /regions/api/story/?id={story_id}
+    View->>Service: get_story_body(story_id)
+    Service->>Neo4j: MATCH (s {id:$id}) WHERE s:Story OR s:Legend
+    Neo4j-->>Service: name, body, type
+    Service-->>View: {name, body, type}
+    View-->>Browser: JSON 응답
+    Browser->>Browser: 본문 모달 출력
+```
+
+### 7.3. 신규 기록실 (AI 괴담 창작)
+
+사용자가 제공한 키워드를 기반으로 LLM을 활용해 새로운 괴담을 창작하고, 생성된 데이터를 DB에 저장하는 흐름입니다.
+
+```mermaid
+sequenceDiagram
+    actor User as 사용자
+    participant View as generator/views.py
+    participant Service as generator/services.py
+    participant LLM as LLM Engine (common/llm_factory)
+    participant Eval as RAGAS (선택)
+    participant DB as PostgreSQL (post_post)
+
+    User->>View: 1. 괴담 창작 키워드 입력 (POST)
+    View->>Service: 2. generate_story(키워드) 호출
+    Service->>LLM: 3. 프롬프트 구성 및 생성 요청
+    LLM-->>Service: 4. AI 괴담 텍스트 반환
+    
+    opt 평가 진행
+        Service->>Eval: 5. 일관성/연관성 평가 요청
+        Eval-->>Service: 6. 평가 결과 반환
+    end
+    
+    Service->>DB: 7. save_generated_story() 수행
+    DB-->>Service: 8. 성공 (post_id 반환)
+    Service-->>View: 9. 창작된 스토리 객체 반환
+    View-->>User: 10. 열린 게시판 (커뮤니티)으로 리다이렉트
+```
+
+### 7.4. 사용자 인증 (로그인/회원가입)
+
+보안을 위해 Django 내장 Session Auth를 사용하여 회원을 관리하고 인증 상태를 유지하는 흐름입니다.
+
+```mermaid
+sequenceDiagram
+    actor User as 사용자
+    participant View as accounts/views.py
+    participant Form as Django Forms
+    participant Auth as Django Auth (Session)
+    participant DB as PostgreSQL (auth_user)
+
+    %% 회원가입 흐름
+    User->>View: 1. 회원가입 요청 (POST)
+    View->>Form: 2. SignupForm 유효성 검증
+    Form->>DB: 3. 중복 확인 및 User 레코드 생성
+    DB-->>Form: 4. 생성 성공
+    Form-->>View: 5. User 객체 반환
+    View->>Auth: 6. 자동 로그인 (authenticate & login)
+    Auth-->>View: 7. Session ID 부여
+    View-->>User: 8. 메인 페이지 이동 (Set-Cookie)
+
+    %% 로그인 흐름
+    User->>View: 1. 로그인 요청 (POST)
+    View->>Form: 2. LoginForm 검증
+    Form->>Auth: 3. authenticate() 호출
+    Auth->>DB: 4. DB 정보와 비밀번호 해시 비교
+    DB-->>Auth: 5. 인증 성공
+    Auth-->>Form: 6. User 객체 반환
+    Form-->>View: 7. 폼 검증 통과
+    View->>Auth: 8. login() 수행하여 세션 저장
+    Auth-->>View: 9. Session ID 갱신
+    View-->>User: 10. next 파라미터 복귀 또는 메인 페이지 이동
+```
+
+### 7.5. 열린 게시판 (커뮤니티 CRUD)
+
+사용자가 직접 작성하는 열린 게시판의 작성, 상세 조회, 수정, 삭제 및 추천 기능을 PostgreSQL(`post_post`, `post_like`)에 저장/처리하는 흐름입니다.
+
+```mermaid
+sequenceDiagram
+    actor User as 사용자
+    participant Browser as 브라우저
+    participant View as post.views
+    participant Service as post.services
+    participant DB as PostgreSQL
+
+    User->>Browser: 글 작성/수정/삭제 요청
+    Browser->>View: API 요청
+    View->>View: 로그인과 작성자 권한 확인
+    View->>Service: 게시글 처리 함수 호출
+    Service->>DB: post_post 저장/수정/삭제
+    DB-->>Service: 처리 결과 반환
+    View-->>Browser: JSON 응답
+    Browser-->>User: 화면 갱신
+```
+
+### 7.6. 데이터 적재 파이프라인 (JSON to PostgreSQL)
+
+원본 JSON 파일들을 필터링하고 카테고리를 변환하여 서비스용 관계형 DB(PostgreSQL)에 일괄 적재하는 파이프라인입니다.
+
+```mermaid
+sequenceDiagram
+    actor Dev as 개발자
+    participant JSON as database/data JSON
+    participant Import as import_json_data.py
+    participant ORM as Django ORM
+    participant DB as PostgreSQL
+
+    Dev->>Import: import 스크립트 실행
+    Import->>JSON: JSON 4개 읽기
+    Import->>Import: 필드 매핑과 category 변환
+    Import->>Import: source_ref_id 해시 생성
+    Import->>ORM: update_or_create 호출
+    ORM->>DB: 테이블별 insert/update
+    DB-->>Dev: 적재 결과 확인
+```
+
+### 7.7. pgvector 임베딩 파이프라인
+
+적재된 원본 기록을 의미 기반(Semantic Search)으로 검색하기 위해 문장 단위로 청킹 후 벡터 데이터베이스(pgvector)에 임베딩하는 흐름입니다.
+
+```mermaid
+sequenceDiagram
+    actor Dev as 개발자
+    participant Embed as embed_records.py
+    participant DB as PostgreSQL
+    participant Chunker as semantic_chunker.py
+    participant Model as multilingual-e5-base
+    participant Vector as record_embeddings
+
+    Dev->>Embed: 임베딩 스크립트 실행
+    Embed->>DB: 원본 테이블 조회
+    DB-->>Embed: horror_stories, myth_entities, dcinside_posts 반환
+    Embed->>Chunker: 본문을 문장/문단 기준으로 청킹
+    Chunker-->>Embed: chunk 목록 반환
+    Embed->>Model: passage prefix로 임베딩 생성
+    Model-->>Embed: 768차원 벡터 반환
+    Embed->>Vector: source_table, source_id, chunk_index 기준 upsert
 ```
 
 ---
@@ -497,27 +689,57 @@ static/fonts/
 
 ### 주요 노드
 
-| 노드       | 설명                              |
-| ---------- | --------------------------------- |
-| `Story`    | DC인사이드 공포 목격담, 한국 괴담 |
-| `Legend`   | 세계 신화/요괴 설명               |
-| `Origin`   | 국가/지역 (한국, 일본, 인도 등)   |
-| `Region`   | 한국 세부 지역 (서울, 부산 등)    |
-| `Place`    | 구체적 장소                       |
-| `Location` | 장소 유형 (학교, 병원 등)         |
+| 노드 | 설명 |
+|---|---|
+| `Story` | DC인사이드 공포 목격담, 한국 괴담 (2,140건) |
+| `Legend` | 세계 신화/요괴 (927건) |
+| `Origin` | 국가/지역 출처 노드 (한국, 일본, 인도 등 39개) |
+| `Region` | 한국 세부 행정 지역 (서울, 부산 등 29개) |
+| `Place` | 구체적 장소 (325개) |
+| `Location` | 장소 유형 (학교, 병원, 산/숲 등) |
+| `Countermeasure` | 대처법/금기 |
+
+### 그래프 관계도
+
+```mermaid
+graph LR
+    Region -->|HAS_PLACE| Place
+    Place -->|OCCURRED_AT| Story
+
+    Story -->|ORIGINATED_IN| Origin
+    Legend -->|ORIGINATED_IN| Origin
+
+    Story -->|HAPPENED_IN| Location
+    Legend -->|LIVES_IN| Location
+    Legend -->|FEATURES| Location
+
+    Legend -->|WARDED_OFF_BY| Countermeasure
+    Legend -->|RECORDED_IN| Source
+    Story -->|POSTED_ON| Source
+```
 
 ### 주요 관계 구조
 
-- `(Story / Legend)-[:ORIGINATED_IN]->(Origin)`
-- `(Region)-[:HAS_PLACE]->(Place)`
-- `(Place)-[:OCCURRED_AT]->(Story)`
-- `(Story)-[:HAPPENED_IN]->(Location)`
-- `(Story)-[:POSTED_ON]->(Source)`
-- `(Legend)-[:WARDED_OFF_BY]->(Countermeasure)`
+| 관계 | 출발 노드 | 도착 노드 | 설명 |
+|---|---|---|---|
+| `ORIGINATED_IN` | Story / Legend | Origin | 괴담/전설의 국가 출처 연결 |
+| `HAS_PLACE` | Region | Place | 지역 내 장소 연결 |
+| `OCCURRED_AT` | Place | Story | 장소에서 발생한 사건 연결 |
+| `HAPPENED_IN` | Story | Location | 사건 발생 장소 유형 연결 |
+| `LIVES_IN` | Legend | Location | 신화 존재의 서식지 연결 |
+| `WARDED_OFF_BY` | Legend | Countermeasure | 퇴치/대처법 연결 |
+| `RECORDED_IN` | Legend | Source | 기록 출처 연결 |
 
 ### 지역 정보실 조회 흐름
 
-지도에서 국가 핀 클릭 → `Origin` 노드 기준으로 `ORIGINATED_IN` 관계를 역방향 탐색 → 해당 국가에 연결된 `Story` / `Legend` 목록 반환
+지도 핀 클릭 (예: 한국)
+        ↓
+`/regions/api/cities/?region=한국`
+        ↓
+`MATCH (c)-[:ORIGINATED_IN]->(o:Origin {name: "한국"})`
+`WHERE (c:Legend OR c:Story) AND c.body IS NOT NULL`
+        ↓
+지역별 괴담 목록 반환 (한국 2,103건 / 일본 296건 / 인도 33건 등)
 
 ---
 
@@ -654,6 +876,11 @@ Django Session 저장
 | **마이페이지 연동** | 보관함(금기/괴담), 작성 글 연동 | DB 연동을 통한 사용자별 정확한 데이터 바인딩 확인 |
 | **Web UI / Effects** | 글리치 효과, 동적 스크롤, 랜덤 이미지 | 브라우저 에러 없는 정적 파일 연동 및 CSS 레이아웃 유지 연출 |
 | **통합 연동 (E2E)** | 비로그인 제어, Next 파라미터, 게시판 연동 | 페이지 간 유기적인 데이터 매핑 흐름 및 보호된 라우팅 리다이렉트 확인 |
+| **지역 데이터 로드** | 지도 핀 자동 배치, 지역 목록 API | 39개 지역 Origin/Region 노드 정상 반환 및 핀 렌더링 확인 |
+| **지역별 괴담 조회** | 핀 클릭 시 스토리 목록 출력 | Neo4j ORIGINATED_IN 기반 조회로 지역별 괴담 정상 반환 |
+| **본문 상세 조회** | 스토리 클릭 시 본문 모달 출력 | Story/Legend 노드 타입 관계없이 body 정상 반환 |
+| **지도 인터랙션** | 드래그, 줌, 리셋 조작 | 브라우저 에러 없이 Pan & Zoom 정상 동작 |
+| **예외 처리** | 없는 지역, 빈 파라미터 요청 | 에러 없이 빈 결과 또는 empty status 반환 |
 
 ### 대표 테스트 시나리오
 
@@ -665,6 +892,14 @@ Django Session 저장
 | **MY-02** | 보관함 데이터 매핑 | 마이페이지 접속 시 본인 저장 데이터(`horror_stories`, `superstitions` 연동) 바인딩 |
 | **UI-01** | 글리치 효과 구동 | 랜덤 간격 대기(`flicker.js`) 시 콘솔 에러 없이 무작위 화면 글리치 및 랜덤 괴이 이미지 팝업 연출 |
 | **UI-04** | 컴포넌트 내부 스크롤 | 신규 기록실/금기 자료실에서 리스트 출력 영역만 브라우저 스크롤과 독립적으로 구동 |
+| **REG-01** | 지역 목록 정상 로드 | 지역 정보실 접속 시 `/regions/api/list/` 호출 → 39개 지역 반환, 지도 핀 정상 배치 확인 |
+| **REG-02** | 한국 핀 클릭 → 목격담 목록 | 한국 핀 클릭 → 공포 목격담 2,000건 이상 표시, 첫 항목 `type=Story` 확인 |
+| **REG-03** | 일본 핀 클릭 → 전설/요괴 목록 | 일본 핀 클릭 → 일본 신화/요괴 `Legend` 노드 296건 표시 확인 |
+| **REG-04** | 인도/태국 등 소규모 지역 조회 | 인도 33건, 태국 3건 정상 반환, 본문 없는 항목 미노출 확인 |
+| **REG-05** | 스토리 본문 모달 조회 | 목록 내 항목 클릭 → 모달 팝업 후 본문 텍스트 정상 출력, `Story`/`Legend` 타입 모두 확인 |
+| **REG-06** | 지도 드래그 & 줌 인터랙션 | +/- 버튼 클릭 시 55%~220% 범위 줌 동작, 드래그로 지도 이동, RESET으로 초기 상태 복귀 확인 |
+| **REG-07** | 없는 지역 조회 (경계값) | `region=남극` 등 데이터 없는 지역 요청 → 에러 없이 빈 목록 반환 확인 |
+| **REG-08** | 빈 파라미터 요청 | `region` 파라미터 없이 API 호출 → `{"status": "empty"}` 반환 확인 |
 
 ### E2E 테스트 (통합 흐름)
 
@@ -673,6 +908,9 @@ Django Session 저장
 | **INT-01** | 비로그인 유저 접근 제한 | 비로그인 상태로 접근 -> `로그인 페이지(?next=)`로 리다이렉트 |
 | **INT-02** | 로그인 후 파라미터 복귀 | 차단 후 로그인 성공 -> 메인 페이지가 아닌 원래 목적지로 자동 이동 |
 | **INT-03** | AI 괴담 창작담 게시판 연동 | 신규 기록실 결과물 -> `게시판 게시` 클릭 -> 커뮤니티 작성 폼으로 유실 없이 매핑 |
+| **INT-04** | 지역 핀 클릭 → 본문 조회 흐름 | 지도 접속 → 한국 핀 클릭 → 목록 로드 → 스토리 클릭 → 본문 모달 출력까지 API 정상 동작 확인 |
+| **INT-05** | Neo4j 연결 장애 시 에러 처리 | Neo4j 미기동 상태에서 핀 클릭 → 오류 메시지 출력, 페이지 크래시 없음 확인 |
+| **INT-06** | 대용량 데이터 스크롤 | 한국(2,103건) 목록 출력 후 패널 내부 스크롤 독립 동작, 브라우저 전체 스크롤 미영향 확인 |
 
 ### 개발 로드맵 (우선순위)
 
