@@ -8,17 +8,21 @@
 1. [프로젝트 소개](#1-프로젝트-소개)
 2. [팀 소개](#2-팀-소개)
 3. [기술 스택](#3-기술-스택)
-4. [시스템 아키텍처](#4-시스템-아키텍처)
-5. [웹페이지 구현](#5-웹페이지-구현)
-6. [데이터베이스 설계 (PostgreSQL 및 pgvector)](#6-데이터베이스-설계-postgresql-및-pgvector)
-7. [GraphDB 설계](#7-graphdb-설계)
-8. [지역 정보실 (Map UI & GraphDB 연동)](#8-지역-정보실-map-ui--graphdb-연동)
-9. [AI 괴담 생성 시나리오](#9-ai-괴담-생성-시나리오)
-10. [기록 열람실 (챗봇) 구현 구조](#10-기록-열람실-챗봇-구현-구조)
-11. [로그인 / 회원가입 및 보안](#11-로그인--회원가입-및-보안)
-12. [테스트 및 평가](#12-테스트-및-평가)
-13. [기대 효과 및 결론](#13-기대-효과-및-결론)
-14. [팀원 회고](#14-팀원-회고)
+4. [요구사항 정의서](#4-요구사항-정의서)
+5. [화면설계서](#5-화면설계서)
+6. [ERD](#6-erd)
+7. [RAG 시퀀스 다이어그램](#7-rag-시퀀스-다이어그램)
+8. [시스템 아키텍처](#8-시스템-아키텍처)
+9. [웹페이지 구현](#9-웹페이지-구현)
+10. [데이터베이스 설계 (PostgreSQL 및 pgvector)](#10-데이터베이스-설계-postgresql-및-pgvector)
+11. [GraphDB 설계](#11-graphdb-설계)
+12. [지역 정보실 (Map UI & GraphDB 연동)](#12-지역-정보실-map-ui--graphdb-연동)
+13. [AI 괴담 생성 시나리오](#13-ai-괴담-생성-시나리오)
+14. [기록 열람실 (챗봇) 구현 구조](#14-기록-열람실-챗봇-구현-구조)
+15. [로그인 / 회원가입 및 보안](#15-로그인--회원가입-및-보안)
+16. [테스트 및 평가](#16-테스트-및-평가)
+17. [기대 효과 및 결론](#17-기대-효과-및-결론)
+18. [팀원 회고](#18-팀원-회고)
 
 ---
 
@@ -134,7 +138,148 @@ Django 기반의 괴담 및 금기 아카이브 플랫폼으로, 다중 데이�
 
 ---
 
-## 4. 시스템 아키텍처
+## 4. 요구사항 정의서
+
+본 프로젝트의 주요 요구사항은 다음과 같습니다.
+
+| 요구사항 ID | 구분 | 기능 요구사항 | 상세 설명 |
+|:---:|:---|:---|:---|
+| REQ-01 | 회원 | 회원 가입 및 로그인 | 세션 기반 로그인, 아이디 중복 확인, 비밀번호 검증 |
+| REQ-02 | 회원 | 마이페이지 | 사용자 정보 확인, 본인이 작성한 게시글 및 보관한 기록(금기/괴담) 관리 |
+| REQ-03 | 기록 | 챗봇(기록 열람실) | 사용자의 키워드와 의도를 파악하여 관련 괴담이나 기록을 대화형으로 검색 |
+| REQ-04 | 기록 | 금기 자료실 | 매일 갱신되는 '오늘의 금기' 제공 및 전체 미신/금기 리스트 조회 |
+| REQ-05 | 창작 | AI 괴담 생성(신규 기록실) | 사용자가 제공한 키워드를 기반으로 LLM이 새로운 괴담을 창작 (RAG 기반) |
+| REQ-06 | 커뮤니티 | 열린 게시판 | 사용자가 직접 경험담을 작성하거나 AI가 생성한 괴담을 공유 (CRUD) |
+| REQ-07 | 탐색 | 지역 정보실 | 한국 지도 기반으로 지역을 선택하여 해당 지역의 괴담, 장소, 신화 존재 탐색 |
+| REQ-08 | 공통 | UI/UX | 글리치 효과, 오컬트 무드의 배경, 터미널형 인터페이스 및 사운드 효과 적용 |
+
+---
+
+## 5. 화면설계서
+
+화면 설계는 기획 의도인 '오컬트, 터미널형 아카이브' 컨셉에 맞춰 구성되었습니다.
+
+- **메인 화면**: 진입 시 글리치 효과와 함께 서비스 메뉴(열람실, 자료실, 기록실, 정보실, 게시판)가 터미널 명령어 형식으로 노출됩니다.
+- **챗봇 (기록 열람실)**: 검은 배경에 녹색/흰색 픽셀 폰트를 사용하여 구형 컴퓨터 콘솔에서 기록을 열람하는 듯한 UI를 제공합니다.
+- **지역 정보실**: 한반도 지도 이미지를 중앙에 배치하고, 특정 지역 클릭 시 우측 패널에서 트리 구조로 장소와 괴담 목록이 전개됩니다.
+- **신규 기록실 / 커뮤니티**: 입력 폼과 목록 조회 테이블 또한 모노톤의 테두리와 픽셀 폰트를 사용하여 사이트 전체의 통일성을 유지합니다.
+
+*(※ 상세 화면 캡처는 하단의 [9. 웹페이지 구현] 섹션을 참고해 주세요.)*
+
+---
+
+## 6. ERD
+
+PostgreSQL 기반의 관계형 데이터베이스와 Neo4j 기반의 그래프 데이터베이스 구조입니다.
+
+### PostgreSQL ERD
+
+```mermaid
+erDiagram
+    USER ||--o{ POST : "작성"
+    USER ||--o{ POST_LIKE : "좋아요"
+    USER ||--o{ SAVED_RECORD : "보관"
+
+    POST {
+        int id PK
+        string title
+        text content
+        string category
+        datetime created_at
+        int author_id FK
+    }
+
+    POST_LIKE {
+        int id PK
+        int post_id FK
+        int user_id FK
+    }
+
+    HORROR_STORY {
+        int id PK
+        string title
+        text content
+        string region
+    }
+
+    MYTH_ENTITY {
+        int id PK
+        string name
+        text description
+        string origin
+    }
+
+    SUPERSTITION {
+        int id PK
+        string content
+    }
+
+    RECORD_EMBEDDING {
+        int id PK
+        string source_table
+        int source_id
+        vector embedding
+    }
+```
+
+### Neo4j GraphDB 관계도
+
+```mermaid
+graph TD
+    A[Origin (국가/지역)] <-- ORIGINATED_IN --- B(Story / Legend)
+    B --- POSTED_ON --> C[Source (출처)]
+    B --- HAPPENED_IN --> D[Location (장소유형)]
+    E[Region (세부지역)] --- HAS_PLACE --> F[Place (구체적 장소)]
+    F --- OCCURRED_AT --> B
+```
+
+---
+
+## 7. RAG 시퀀스 다이어그램
+
+기록 열람실에서 사용자 키워드를 바탕으로 DB 유사도 검색(pgvector)을 수행하고, LLM을 통해 괴담을 재구성 및 응답하는 RAG(Retrieval-Augmented Generation) 파이프라인입니다.
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant View as Django View (Chatbot)
+    participant Classifier as Intent Classifier (LLM)
+    participant VectorDB as PostgreSQL (pgvector)
+    participant LLM as LLM Engine (Groq/Ollama)
+    participant Eval as RAGAS Evaluator
+    participant TTS as ElevenLabs TTS
+
+    User->>View: 1. 키워드/질문 입력
+    View->>Classifier: 2. 사용자 의도 분석 (괴담조회/일반대화 등)
+    Classifier-->>View: 의도 반환 (괴담조회)
+    
+    View->>VectorDB: 3. 키워드 임베딩 변환 및 유사도 검색 (Cosine Distance)
+    VectorDB-->>View: 4. 가장 유사한 기록(Chunk) 반환
+    
+    View->>LLM: 5. 원본 기록 + 프롬프트 전달 (생성 요청)
+    LLM-->>View: 6. 괴담 초안 생성
+    
+    View->>Eval: 7. 초안 평가 요청 (일관성, 분위기 등)
+    Eval-->>View: 8. 평가 결과 및 피드백 반환
+    
+    opt 수정 필요 시
+        View->>LLM: 9. 피드백 반영 재구성 요청
+        LLM-->>View: 수정된 괴담 반환
+    end
+    
+    View-->>User: 10. 최종 텍스트 응답 출력
+    
+    opt 낭독 요청 시
+        User->>View: "읽어줘"
+        View->>TTS: 텍스트 전달
+        TTS-->>View: 오디오 스트림 반환
+        View-->>User: BGM + TTS 음성 재생
+    end
+```
+
+---
+
+## 8. 시스템 아키텍처
 
 ### 프로젝트 구조
 
@@ -160,7 +305,7 @@ SKN27-4th-1team/
 
 ---
 
-## 5. 웹페이지 구현
+## 9. 웹페이지 구현
 
 Django Template 기반으로 화면을 구성했습니다.  
 각 페이지는 `templates/` 폴더에 배치하고, 공통 스타일과 인터랙션은 `static/css/styles.css`, `static/js/flicker.js`에서 관리합니다.  
@@ -314,7 +459,7 @@ static/fonts/
 
 ---
 
-## 6. 데이터베이스 설계 (PostgreSQL 및 pgvector)
+## 10. 데이터베이스 설계 (PostgreSQL 및 pgvector)
 
 서비스 데이터의 안정적인 저장과 조회를 위해 PostgreSQL을 주 데이터베이스로 사용하며, 원본 괴담 및 외부 수집 데이터를 체계적으로 적재하고 pgvector 확장 기능으로 의미 기반 검색(Semantic Search)을 지원합니다.
 
@@ -342,7 +487,7 @@ static/fonts/
 
 ---
 
-## 7. GraphDB 설계 (Neo4j)
+## 11. GraphDB 설계 (Neo4j)
 
 관계형 조회가 유리한 지역, 괴담, 신화 존재 간의 상호 관계를 구조적으로 탐색하기 위해 Neo4j를 분리 구성했습니다.
 
@@ -376,7 +521,7 @@ static/fonts/
 
 ---
 
-## 8. 지역 정보실 (Map UI & GraphDB 연동)
+## 12. 지역 정보실 (Map UI & GraphDB 연동)
 
 **지역 정보실**은 Neo4j GraphDB와 연동하여 국가 및 지역별 하위 장소(City) 노드와 관련 괴이 기록(Story/Legend/SCP)의 유기적인 관계를 시각적으로 탐색하는 서비스입니다.  
 Django View를 거쳐 드래그 및 줌(Zoom) 기능이 지원되는 반응형 지도 화면을 렌더링하고, JavaScript `fetch()`와 Cypher Query 기반 API 비동기 조회를 통해 그래프 데이터를 실시간 가공하여 동적 폴더 트리 구조로 제공합니다.
@@ -402,7 +547,7 @@ Django View를 거쳐 드래그 및 줌(Zoom) 기능이 지원되는 반응형 �
 
 ---
 
-## 9. AI 괴담 생성 시나리오
+## 13. AI 괴담 생성 시나리오
 
 1. **사용자 요청**: `generator/storymaker/` 페이지에서 새로운 괴담 생성을 위한 키워드 입력 후 요청
 2. **View-Service 라우팅**: `generator.views`가 요청을 받아 `generator.services.generate_story` 호출
@@ -412,7 +557,7 @@ Django View를 거쳐 드래그 및 줌(Zoom) 기능이 지원되는 반응형 �
 
 ---
 
-## 10. 기록 열람실 (챗봇) 구현 구조
+## 14. 기록 열람실 (챗봇) 구현 구조
 
 기록 열람실 챗봇은 단순한 키워드 검색을 넘어, 사용자의 의도를 분석하고 생성형 AI를 활용하여 몰입감 있는 대화형 검색을 제공합니다.
 
@@ -426,7 +571,7 @@ Django View를 거쳐 드래그 및 줌(Zoom) 기능이 지원되는 반응형 �
 
 ---
 
-## 11. 로그인 / 회원가입 및 보안
+## 15. 로그인 / 회원가입 및 보안
 
 Django 기본 Session 인증 방식을 사용합니다.  
 HTML 템플릿 기반 구조에 맞춰 DRF Token 방식 대신 Django Session으로 로그인 상태를 관리합니다.  
@@ -497,7 +642,7 @@ Django Session 저장
 
 ---
 
-## 12. 테스트 및 평가
+## 16. 테스트 및 평가
 
 평가는 단일 기능의 동작 여부만 보지 않고 인증/세션, 정적 레이아웃 유지, 외부 API 및 AI 연동, 최종 게시판 매핑 등의 흐름을 분리해 확인했습니다.
 
@@ -541,7 +686,7 @@ Django Session 저장
 
 ---
 
-## 13. 기대 효과 및 결론
+## 17. 기대 효과 및 결론
 
 ### 기대 효과
 
@@ -555,7 +700,7 @@ Django Session 저장
 
 ---
 
-## 14. 팀원 회고
+## 18. 팀원 회고
 
 ### [김민경]
 
