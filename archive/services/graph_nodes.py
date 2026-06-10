@@ -11,6 +11,7 @@ from archive.services.keyword_extractor import extract_keywords
 from archive.services.prompt import (
     build_evaluation_prompt,
     build_generation_prompt,
+    build_generation_retry_prompt,
     build_general_chat_prompt,
     build_intent_classification_prompt,
     build_revision_prompt,
@@ -1331,7 +1332,21 @@ def generate_node(state: ArchiveState) -> dict[str, Any]:
     generated_story = extract_story_from_model_response(invoke_gemma_llm(prompt))
     if not generated_story.strip():
         logging.getLogger(__name__).warning(
-            "Archive generation LLM returned empty response",
+            "Archive generation LLM returned empty response; retrying with compact prompt",
+            extra=build_story_log_extra(source_story),
+        )
+        retry_prompt = build_generation_retry_prompt(
+            question=state.get("question", ""),
+            keywords=state.get("keywords", []),
+            source_story=source_story,
+        )
+        generated_story = extract_story_from_model_response(
+            invoke_gemma_llm(retry_prompt),
+        )
+
+    if not generated_story.strip():
+        logging.getLogger(__name__).warning(
+            "Archive generation LLM returned empty response after retry",
             extra=build_story_log_extra(source_story),
         )
         message = get_empty_generation_message()

@@ -1,7 +1,5 @@
 from typing import Any, Optional
 
-from langgraph.graph import END, START, StateGraph
-
 from archive.services import graph_nodes
 from archive.services.archive_search import get_archive_record
 from archive.services.keyword_extractor import extract_keywords
@@ -87,6 +85,8 @@ def run_archive_record_chatbot(
 
 def build_archive_graph():
     """archive 챗봇용 LangGraph 노드 흐름을 구성한다."""
+    from langgraph.graph import END, START, StateGraph
+
     builder = StateGraph(graph_nodes.ArchiveState)
     builder.add_node("intent", graph_nodes.intent_node)
     builder.add_node("general_chat", graph_nodes.general_chat_node)

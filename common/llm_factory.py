@@ -1,16 +1,19 @@
 
-from langchain_groq import ChatGroq
-from langchain_ollama import OllamaLLM
-
 def get_post_generation_llm():
+    from langchain_groq import ChatGroq
+
     return ChatGroq(
         model="openai/gpt-oss-20b",
         temperature=0.5
     )
 
 def get_llm(): # archive intent, search, evaluation
-    return ChatGroq(model="openai/gpt-oss-120b")
+    from langchain_groq import ChatGroq
+
+    return ChatGroq(model="openai/gpt-oss-20b")
 
 def generator_llm():
+    from langchain_ollama import OllamaLLM
+
     return OllamaLLM(model="gemma4:e4b")
 
