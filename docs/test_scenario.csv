@@ -1,0 +1,36 @@
+﻿구분,ID,시나리오명,상세내용/입력,기대결과/검증포인트,테스트 결과,테스트 일시,검증 방식,비고
+"회원가입
+
+(Signup)",SIGN-01,정상 회원가입 및 자동 로그인,"규칙에 맞는 신규 ID, PW, 이메일 입력",auth_user 테이블에 레코드 생성 및 즉시 자동 로그인되어 메인 페이지 리다이렉트,PASS,2026-06-08 16:01,Django Client POST /accounts/signup/,"status=302, location=/accounts/mypage/, user_created=True, logged_in=True"
+,SIGN-02,아이디 중복 가입 제한,이미 존재하는 ID 입력,"""이미 존재하는 아이디입니다"" 등 폼 에러 메시지 UI 노출",PASS,2026-06-08 16:01,Django Client duplicate signup,"status=200, error_visible=True"
+,SIGN-03,비밀번호 일치 여부 검증,비밀번호와 비밀번호 확인 값을 다르게 입력,가입이 차단되며 비밀번호 불일치 안내 메시지 노출,PASS,2026-06-08 16:01,Django Client password mismatch,"status=200, error_visible=True"
+"로그인/로그아웃
+
+(Auth)",AUTH-01,정상 로그인 및 세션 생성,가입된 올바른 ID / PW 입력,"세션 생성 후 메인으로 이동, 상단 네비게이션 바가 '마이페이지/로그아웃'으로 변경됨",PASS,2026-06-08 16:01,Django Client POST /accounts/login/,"status=302, location=/accounts/mypage/, logged_in=True"
+,AUTH-02,로그인 실패 처리,틀린 비밀번호 또는 없는 ID 입력,"""아이디 또는 비밀번호가 일치하지 않습니다"" 알림 노출 및 세션 생성 차단",PASS,2026-06-08 16:01,Django Client invalid login,"status=200, logged_in=False, error_visible=True"
+,AUTH-03,CSRF 보안 검증,CSRF 토큰을 누락하거나 변조하여 로그인 시도,403 Forbidden 에러 발생 및 로그인 차단 (보안 적용 확인),PASS,2026-06-08 16:01,Django Client enforce_csrf_checks,status=403
+,AUTH-04,정상 로그아웃,로그인 상태에서 '로그아웃' 버튼 클릭,"세션이 완전히 파기되며 메인 페이지 리다이렉트, 상단 바가 '로그인/회원가입'으로 변경됨",PASS,2026-06-08 16:01,Django Client GET /accounts/logout/,"status=302, location=/, logged_in=False"
+"마이페이지
+
+(Mypage)",MY-01,사용자 기본 정보 바인딩,마이페이지 진입 (/accounts/mypage/),"현재 로그인한 유저의 ID, 이메일 등 기본 정보가 템플릿에 정확히 노출됨",PASS,2026-06-08 16:01,Django Client GET /accounts/mypage/,"status=200, username_visible=True, email_visible=True"
+,MY-02,보관함 데이터 매핑 (괴담/금기),유저가 저장한 보관 기록 조회,"horror_stories, superstitions 연동 보관함 테이블에서 본인 데이터만 정확히 바인딩됨",PASS,2026-06-08 16:01,Bookmark test record + mypage render,accounts_bookmark 기반 보관 기록 노출 확인. horror_stories/superstitions FK 직접 연동 구조는 현재 모델에 없음.
+,MY-03,내가 쓴 글 목록 및 이동,유저가 작성한 창작담/목격담 리스트 조회,"post_post 테이블에서 본인 글 목록을 불러오고, 제목 클릭 시 상세 커뮤니티 페이지로 이동",PASS,2026-06-08 16:01,POST /post/api/create/ + GET /accounts/mypage/,"create_status=200, post_id=22, appears_in_mypage=True"
+,MY-04,회원 탈퇴 및 세션 파기,마이페이지 내 '회원 탈퇴' 버튼 클릭 후 확정,"auth_user에서 데이터 삭제(또는 비활성화), 즉시 로그아웃 처리 및 접근 권한 차단",PASS,2026-06-08 16:01,Django Client POST /accounts/delete/,"status=302, location=/, user_exists=False, logged_in=False"
+"Web UI
+
+(Static/Effects)",UI-01,글리치 효과 구동 검증,페이지 접속 후 대기 (flicker.js),브라우저 콘솔 에러 없이 랜덤한 간격으로 화면/텍스트 글리치 효과가 정상 연출됨,PASS,2026-06-08 16:01,static/js/flicker.js 정적 점검,랜덤 간격 page-flicker 클래스 토글 로직 확인
+,UI-02,괴이 이미지 랜덤 팝업,글리치 효과(화면 깜빡임) 발생 시,절대 좌표(position: absolute/fixed) 기준으로 레이아웃을 깨뜨리지 않고 투명 이미지가 순간 노출됨,PASS,2026-06-08 16:01,CSS/JS/asset 정적 점검,"ghost_asset=True, layout_fixed=True"
+,UI-03,금기 자료실 내부 스크롤,/archive/archive/ 페이지 스크롤,"브라우저 전체 스크롤바는 고정되고, 대량의 금기 목록(superstitions 연동) 영역만 내부 스크롤됨",PASS,2026-06-08 16:01,API + template/CSS 정적 점검,"api_status=200, page_status=200, taboo_count=214, internal_scroll_css=True"
+,UI-04,신규 기록실 내부 스크롤,/generator/storymaker/ 괴담 생성 완료,"입력 폼 영역은 화면에 고정되고, AI가 생성한 괴담 초안 결과 영역만 독립적으로 내부 스크롤됨",PASS,2026-06-08 16:01,template/CSS 정적 점검,"page_status=200, result_area=True, internal_scroll_css=True"
+"통합/연동
+
+(Integration)",INT-01,비로그인 유저 접근 제한,로그아웃 상태에서 /accounts/mypage/ 직접 주소 입력,접근이 차단되며 /accounts/login/?next=/accounts/mypage/로 안전하게 리다이렉트,PASS,2026-06-08 16:01,Django Client GET /accounts/mypage/ without login,"status=302, location=/accounts/login/?next=/accounts/mypage/"
+,INT-02,로그인 후 Next 파라미터 이동,INT-01 차단 상태에서 올바른 계정 로그인,로그인 완료 즉시 메인 페이지가 아닌 원래 목적지였던 마이페이지로 자동 이동,PASS,2026-06-08 16:01,Django Client next parameter,"status=302, location=/accounts/mypage/"
+,INT-03,AI 괴담 창작담 게시판 연동,신규 기록실 생성 결과물 -> '게시판 게시' 버튼 클릭,생성된 텍스트 초안을 가지고 커뮤니티 작성 폼(community.html)으로 유실 없이 매핑 및 작성 연동,PASS,2026-06-08 16:01,storymaker template + post API/search API,"storymaker_status=200, publish_button=True, post_search_ok=True"
+"개발 우선순위
+
+(Priority)",P-01,1순위,-,"accounts app 회원가입/로그인 및 인증 세션, CSRF 처리",참고,2026-06-08 16:01,우선순위 행,테스트 대상이 아니라 개발 우선순위 설명 행입니다.
+,P-02,2순위,-,static 파일 연동 및 flicker.js 화면 레이아웃 안정성 검증,참고,2026-06-08 16:01,우선순위 행,테스트 대상이 아니라 개발 우선순위 설명 행입니다.
+,P-03,3순위,-,마이페이지 내 사용자 정보 및 보관함 DB 테이블(PostgreSQL) 매핑 데이터 검증,참고,2026-06-08 16:01,우선순위 행,테스트 대상이 아니라 개발 우선순위 설명 행입니다.
+,P-04,4순위,-,금기 자료실/신규 기록실 페이지 내 컴포넌트별 독자 내부 스크롤 UI 검증,참고,2026-06-08 16:01,우선순위 행,테스트 대상이 아니라 개발 우선순위 설명 행입니다.
+,P-05,5순위,-,비로그인 권한 제어 및 AI 생성기 -> 커뮤니티 연동 흐름 검증,참고,2026-06-08 16:01,우선순위 행,테스트 대상이 아니라 개발 우선순위 설명 행입니다.
