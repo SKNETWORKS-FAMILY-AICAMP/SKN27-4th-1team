@@ -389,16 +389,16 @@
 
       .next-slide-button {
         position: fixed;
-        right: 18px;
-        bottom: 18px;
+        right: 14px;
+        bottom: 14px;
         z-index: 20;
-        min-width: 72px;
-        padding: 7px 10px;
+        min-width: 60px;
+        padding: 5px 8px;
         color: #fff4f4;
         border: 1px solid var(--red);
         background: rgba(160, 0, 0, 0.88);
         font: inherit;
-        font-size: 12px;
+        font-size: 10px;
         font-weight: 800;
         cursor: pointer;
         box-shadow: 0 8px 18px rgba(0, 0, 0, 0.34);
@@ -453,11 +453,11 @@
         }
 
         .next-slide-button {
-          right: 10px;
-          bottom: 10px;
-          min-width: 58px;
-          padding: 6px 8px;
-          font-size: 11px;
+          right: 8px;
+          bottom: 8px;
+          min-width: 52px;
+          padding: 4px 7px;
+          font-size: 9px;
         }
       }
 
@@ -511,8 +511,7 @@
         <span class="eyebrow">괴이바</span>
         <h1>괴이기록 보관소</h1>
         <p class="lead">
-          Django 기반의 괴담 및 금기 아카이브 플랫폼으로, 데이터베이스와
-          LLM을 활용하여 새로운 괴담 창작과 공유 흐름을 지원합니다.
+          괴담 및 금기의 조회와 새로운 괴담 창작과 공유 흐름을 지원합니다.
         </p>
         <div class="badge-list">
           <span class="badge">2026.06.09 - 2026.06.10</span>
@@ -579,8 +578,8 @@
         <span class="eyebrow">03. Concept</span>
         <h2>오래된 괴담 기록소에 접속하는 경험</h2>
         <p class="lead">
-          괴이바는 단순한 정보 검색 사이트가 아니라, 사용자가 금지된 기록을 열람하는 듯한
-          분위기를 느끼도록 설계한 괴담 아카이브 서비스입니다.
+          괴이 기록 보관소는 단순한 정보 검색 사이트가 아니라, 사용자가 오래된  공포 기록을 열람하는 듯한
+          분위기를 느끼도록 설계
         </p>
         <div class="grid three">
           <article class="card">
@@ -1021,12 +1020,17 @@
         const currentIndex = getCurrentSlideIndex();
         const isLastSlide = currentIndex >= slides.length - 1;
         nextSlideButton.textContent = isLastSlide ? "END" : "NEXT";
-        nextSlideButton.disabled = isLastSlide;
       }
 
       nextSlideButton.addEventListener("click", () => {
-        const nextSlide = slides[getCurrentSlideIndex() + 1];
-        if (!nextSlide) return;
+        const currentIndex = getCurrentSlideIndex();
+        const nextSlide = slides[currentIndex + 1];
+
+        if (!nextSlide) {
+          window.location.href = "http://127.0.0.1:8000/";
+          return;
+        }
+
         nextSlide.scrollIntoView({ behavior: "smooth", block: "start" });
       });
 
