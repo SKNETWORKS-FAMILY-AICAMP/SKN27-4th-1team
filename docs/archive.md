@@ -98,7 +98,15 @@ flowchart TD
     X --> W
     W --> Y["last_tts_text 저장"]
 
-    O --> Z["/archive/api/tts/ 스트림 재생"]
+    O --> Z["/archive/api/tts/ 호출"]
+    Z --> AA["ELEVENLABS_MODEL_ID=eleven_v3 검증"]
+    AA --> AB["last_tts_narration 캐시 확인"]
+    AB -->|캐시 있음| AC["캐시된 낭독 대본 사용"]
+    AB -->|캐시 없음| AD["convert_story_to_narration()"]
+    AD --> AE["build_tts_narration_prompt()로 TTS용 대본 재구성"]
+    AE --> AF["last_tts_narration 저장"]
+    AC --> AG["ElevenLabs v3 스트림 재생"]
+    AF --> AG
 ```
 
 `/archive/api/search/`는 검색 의도에서 괴담 본문을 바로 생성하지 않는다. 먼저 관련 기록 목록을 JSON으로 반환하고, 사용자가 특정 기록을 고른 뒤 `/archive/api/rewrite/`에서 재구성한다.
@@ -149,7 +157,16 @@ sequenceDiagram
         UI->>API: /archive/api/search/?q=읽어줘
         API-->>UI: tts_ready
         UI->>API: /archive/api/tts/
-        API->>TTS: ElevenLabs 스트림 요청
+        API->>API: ELEVENLABS_MODEL_ID=eleven_v3 검증
+        API->>API: last_tts_narration 캐시 확인
+        alt 캐시 없음
+            API->>LLM: TTS용 낭독 대본 재구성
+            LLM-->>API: 낭독 대본
+            API->>API: last_tts_narration 저장
+        else 캐시 있음
+            API->>API: 캐시된 낭독 대본 사용
+        end
+        API->>TTS: ElevenLabs v3 스트림 요청
         TTS-->>API: audio/mpeg
         API-->>UI: 음성 스트림
         UI-->>User: 낭독 재생
@@ -353,6 +370,7 @@ semantic 검색 설정은 `config/settings.py`가 아니라 `archive_search.py` 
 | `archive_context` | 최근 검색어, 검색 키워드, query_analysis, 최근 결과, 최근 선택 기록 저장 |
 | `last_tts_text` | 마지막으로 생성된 낭독 대상 본문 저장 |
 | `last_tts_error` | 마지막 TTS 오류 메시지 저장 |
+| `last_tts_narration` | 같은 본문을 다시 낭독할 때 사용할 TTS용 재구성 대본 저장 |
 
 세션 키는 로그인 사용자와 익명 사용자를 분리한다.
 
@@ -370,7 +388,7 @@ TTS는 `archive/services/tts.py`에서 ElevenLabs 스트리밍 API를 사용한�
 ```env
 ELEVENLABS_API_KEY=
 ELEVENLABS_VOICE_ID=
-ELEVENLABS_MODEL_ID=
+ELEVENLABS_MODEL_ID=eleven_v3
 ```
 
 동작 순서는 다음과 같다.
@@ -379,19 +397,25 @@ ELEVENLABS_MODEL_ID=
 2. 사용자가 `읽어줘` 단독 명령을 입력한다.
 3. `/archive/api/search/`가 `tts_request`로 분기한다.
 4. 저장된 본문이 있으면 프론트가 `/archive/api/tts/`를 오디오 소스로 연다.
-5. 서버가 `open_story_audio_stream()`으로 ElevenLabs 스트림을 열고 `StreamingHttpResponse`로 `audio/mpeg`를 반환한다.
-6. 사용자가 멈춰, 중지, 정지, 그만 등을 입력하면 프론트가 현재 TTS와 YouTube BGM을 즉시 정리한다.
+5. 서버는 `prepare_tts_narration()`에서 저장된 괴담 본문을 확인한다.
+6. 같은 본문의 `last_tts_narration` 캐시가 있으면 그대로 사용한다.
+7. 캐시가 없으면 `convert_story_to_narration()`이 `build_tts_narration_prompt()`로 괴담 본문을 ElevenLabs v3용 낭독 대본으로 재구성한다.
+8. 변환 결과가 너무 짧거나 LLM 변환에 실패하면 원문 본문으로 낭독한다.
+9. 서버가 `open_story_audio_stream()`으로 ElevenLabs 스트림을 열고 `StreamingHttpResponse`로 `audio/mpeg`를 반환한다.
+10. 사용자가 멈춰, 중지, 정지, 그만 등을 입력하면 프론트가 현재 TTS와 YouTube BGM을 즉시 정리한다.
 
 `POST /archive/api/tts/`는 직접 전달받은 텍스트를 저장할 수도 있다. `prepare_only`가 참이면 스트리밍하지 않고 `last_tts_text`만 준비한다.
+
+TTS 재구성 프롬프트는 원문의 사건, 순서, 결말을 바꾸지 않고 낭독 호흡만 다듬도록 설계되어 있다. 첫 줄이 제목이면 본문부터 읽도록 하고, `[whispers]`, `[sighs]`, `[exhales]`, `[nervously]` 같은 ElevenLabs v3 오디오 태그를 3~6개만 사용하게 제한한다.
 
 TTS 오류 확인용 보조 요청도 있다.
 
 | 요청 | 역할 |
 |---|---|
 | `/archive/api/tts/?error=1` | 마지막 TTS 오류 메시지 조회 |
-| `/archive/api/tts/?diagnose=1` | 현재 저장된 TTS 본문으로 스트림 준비 가능 여부 점검 |
+| `/archive/api/tts/?diagnose=1` | 현재 저장된 원문 TTS 본문으로 스트림 준비 가능 여부 점검 |
 
-`ELEVENLABS_MODEL_ID` 기본값은 `eleven_multilingual_v2`다. `eleven_v3`가 아닌 모델에는 `optimize_streaming_latency=1` 쿼리를 붙인다.
+현재 TTS는 `ELEVENLABS_MODEL_ID=eleven_v3`만 허용한다. TTS 재구성 대본이 v3 오디오 태그를 포함하므로, 설정이 없거나 다른 모델이면 `/archive/api/tts/`는 ElevenLabs 스트림을 열지 않고 설정 오류로 중단한다.
 
 ## 14. 오디오 볼륨과 배경음
 
